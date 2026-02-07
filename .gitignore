@@ -1,0 +1,21 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.python-version
+
+# Local
+# notes
+.envrc
+sandbox
+benchmark_results.db
+demos-old
+programs/benchmark-old/
+notes/
+scripts/

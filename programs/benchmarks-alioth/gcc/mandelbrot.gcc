@@ -1,0 +1,46 @@
+/* The Computer Language Benchmarks Game
+ * http://benchmarksgame.alioth.debian.org/
+ *
+ * Modified for p2w comparison - counts iterations instead of PBM output
+ */
+
+#include<stdio.h>
+#include<stdlib.h>
+
+int main (int argc, char **argv)
+{
+    int w, h;
+    int i, iter = 50;
+    double x, y, limit = 2.0;
+    double Zr, Zi, Cr, Ci, Tr, Ti;
+    int total_in_set = 0;
+
+    w = h = atoi(argv[1]);
+
+    for(y=0;y<h;++y)
+    {
+        for(x=0;x<w;++x)
+        {
+            Zr = Zi = Tr = Ti = 0.0;
+            Cr = (2.0*x/w - 1.5);
+            Ci = (2.0*y/h - 1.0);
+
+            int in_set = 1;
+            for (i=0;i<iter && (Tr+Ti <= limit*limit);++i)
+            {
+                Zi = 2.0*Zr*Zi + Ci;
+                Zr = Tr - Ti + Cr;
+                Tr = Zr * Zr;
+                Ti = Zi * Zi;
+            }
+
+            if(Tr+Ti > limit*limit) {
+                in_set = 0;
+            }
+            total_in_set += in_set;
+        }
+    }
+
+    printf("size: %d in_set: %d\n", w, total_in_set);
+    return 0;
+}

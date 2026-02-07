@@ -1,0 +1,31 @@
+image: alpine/latest
+packages:
+  - uv
+  - gcc
+  - python3-dev
+
+secrets:
+  - b88a4c2c-944c-42a6-9fbb-7483049c458a
+
+sources:
+  - git@git.sr.ht:~sfermigier/p2w
+
+tasks:
+  - install: |
+      cd p2w
+      uv sync
+  - test: |
+      cd p2w
+      uv run pytest -q --tb=short
+  - lint: |
+      cd p2w
+      uv run ruff check
+      uv run ty check src
+  - nox: |
+      cd p2w
+      uvx nox
+
+triggers:
+  - action: email
+    condition: failure
+    to: sf@fermigier.com

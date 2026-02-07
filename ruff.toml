@@ -1,0 +1,78 @@
+target-version = "py310"
+preview = true
+
+lint.select = [
+    "ALL",
+]
+
+include = [
+    "pyproject.toml",
+    "src/**/*.py",
+    "tests/**/*.py",
+]
+
+lint.extend-ignore = [
+    # Later (or never)
+    "CPY", # Copyright
+    "A",
+    "ANN",
+    "ERA",
+    "FBT",
+    "D",
+    "DOC",
+
+    # False positive (or not)
+    "S101", # Use of `assert` detected
+    "D203", # one-blank-line-before-class
+    "D213", # multi-line-summary-second-line
+    "COM812", # ...
+    "T201", # Print...
+    "PERF401", # list comprehension - explicit append loop is clearer
+
+    # Fix later (or not)
+    "E501", #   	line-too-long
+    "TRY003", # 	raise-vanilla-args
+    "C901", #   	complex-structure
+    "PLR0912", #	too-many-branches
+    "PLR0915", #	too-many-statements
+    "PLR2004", #	magic-value-comparison
+    "PLW1514", #	unspecified-encoding
+    "S603", #   	subprocess-without-shell-equals-true
+    "S607", #   	start-process-with-partial-path
+    "B007", #   	unused-loop-control-variable
+    "S404", #   	suspicious-subprocess-import
+    "B905", #   	zip-without-explicit-strict
+    "FURB148", #	unnecessary-enumerate
+    "PLR0914", #	too-many-locals
+    "RUF067", # 	non-empty-init-module
+    "SIM102", # 	collapsible-if
+    "TRY300", # 	try-consider-else
+    "ARG001",
+    "PLR0904",
+    "PLR0911",
+    "PLR0917",
+    "PLR0913",
+    "PLR6301",
+]
+
+[lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    # Keep
+    "PLR6301", #	no-self-use
+    #
+    "BLE001", #  blind-except
+    "D",
+    "DOC",
+    "ANN",
+    "PLR2004",
+    "INP001",
+    "PLC0415", # runtime imports for optional dependencies
+    "E501", # line too long in test assertions
+    "N802", # naming
+    "ARG001", # 	unused-function-argument
+]
+
+[lint.isort]
+combine-as-imports = true
+required-imports = ["from __future__ import annotations"]
+known-first-party = ["p2w"]

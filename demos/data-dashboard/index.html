@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Data Dashboard - p2w WASM Demo</title>
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                background: #f5f5f5;
+                min-height: 100vh;
+                padding: 20px;
+            }
+            .dashboard {
+                max-width: 800px;
+                margin: 0 auto;
+            }
+            h1 {
+                color: #333;
+                margin-bottom: 10px;
+            }
+            .subtitle {
+                color: #666;
+                font-size: 14px;
+                margin-bottom: 20px;
+            }
+            .card {
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+            #chart {
+                border: 1px solid #ddd;
+                border-radius: 4px;
+            }
+            .wasm-status {
+                padding: 10px;
+                border-radius: 4px;
+                margin-bottom: 15px;
+                font-size: 14px;
+            }
+            .wasm-status.loading {
+                background: #fff3cd;
+                color: #856404;
+            }
+            .wasm-status.success {
+                background: #d4edda;
+                color: #155724;
+            }
+            .wasm-status.error {
+                background: #f8d7da;
+                color: #721c24;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="dashboard">
+            <h1>Data Dashboard</h1>
+            <p class="subtitle">
+                Built with <a href="https://git.sr.ht/~sfermigier/p2w">p2w</a> - Python compiled to
+                WebAssembly with Canvas 2D rendering
+            </p>
+
+            <div id="wasm-status" class="wasm-status loading">Loading WASM module...</div>
+
+            <div class="card">
+                <canvas id="chart" width="600" height="400"></canvas>
+            </div>
+        </div>
+
+        <script type="module">
+            import { loadp2w } from "./loader.js";
+
+            const statusEl = document.getElementById("wasm-status");
+
+            async function init() {
+                try {
+                    const instance = await loadp2w("./dist/app.wasm", {});
+
+                    statusEl.className = "wasm-status success";
+                    statusEl.textContent = "WASM loaded successfully!";
+
+                    if (instance.exports._start) {
+                        const exitCode = instance.exports._start();
+                        console.log("WASM exit code:", exitCode);
+                    }
+                } catch (err) {
+                    statusEl.className = "wasm-status error";
+                    statusEl.textContent = `Error: ${err.message}`;
+                    console.error(err);
+                }
+            }
+
+            init();
+        </script>
+    </body>
+</html>

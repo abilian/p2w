@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Predator-Prey Simulation - p2w WASM Demo</title>
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                background: #0f172a;
+                color: #e2e8f0;
+                min-height: 100vh;
+                padding: 20px;
+            }
+            .container {
+                max-width: 700px;
+                margin: 0 auto;
+            }
+            h1 {
+                color: #6366f1;
+                margin-bottom: 10px;
+            }
+            .subtitle {
+                color: #94a3b8;
+                font-size: 14px;
+                margin-bottom: 20px;
+            }
+            .card {
+                background: #1e293b;
+                border-radius: 8px;
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+            #sim-canvas {
+                border-radius: 4px;
+            }
+            .wasm-status {
+                padding: 10px;
+                border-radius: 4px;
+                margin-bottom: 15px;
+                font-size: 14px;
+            }
+            .wasm-status.loading {
+                background: #422006;
+                color: #fbbf24;
+            }
+            .wasm-status.success {
+                background: #14532d;
+                color: #4ade80;
+            }
+            .wasm-status.error {
+                background: #450a0a;
+                color: #f87171;
+            }
+            .description {
+                color: #94a3b8;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Predator-Prey Simulation</h1>
+            <p class="subtitle">
+                Lotka-Volterra ecosystem model - Built with
+                <a href="https://git.sr.ht/~sfermigier/p2w" style="color: #6366f1">p2w</a>
+                (Python to WebAssembly)
+            </p>
+
+            <div id="wasm-status" class="wasm-status loading">Loading WASM module...</div>
+
+            <div class="card">
+                <canvas id="sim-canvas" width="600" height="400"></canvas>
+            </div>
+
+            <div class="card description">
+                <p>This simulation demonstrates the classic Lotka-Volterra predator-prey model:</p>
+                <ul style="margin-top: 10px; margin-left: 20px">
+                    <li>
+                        <span style="color: #3b82f6">Blue line</span>: Prey (rabbits) population
+                    </li>
+                    <li>
+                        <span style="color: #ef4444">Red line</span>: Predator (foxes) population
+                    </li>
+                </ul>
+                <p style="margin-top: 10px">
+                    The oscillations show how predator and prey populations are linked: more prey
+                    leads to more predators, which then reduces prey, which reduces predators, and
+                    the cycle repeats.
+                </p>
+            </div>
+        </div>
+
+        <script type="module">
+            import { loadp2w } from "./loader.js";
+
+            const statusEl = document.getElementById("wasm-status");
+
+            async function init() {
+                try {
+                    const instance = await loadp2w("./dist/app.wasm", {});
+
+                    statusEl.className = "wasm-status success";
+                    statusEl.textContent = "WASM loaded and simulation complete!";
+
+                    if (instance.exports._start) {
+                        const exitCode = instance.exports._start();
+                        console.log("WASM exit code:", exitCode);
+                    }
+                } catch (err) {
+                    statusEl.className = "wasm-status error";
+                    statusEl.textContent = `Error: ${err.message}`;
+                    console.error(err);
+                }
+            }
+
+            init();
+        </script>
+    </body>
+</html>

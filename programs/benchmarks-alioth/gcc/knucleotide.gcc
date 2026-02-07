@@ -1,0 +1,169 @@
+/* The Computer Language Benchmarks Game
+ * http://benchmarksgame.alioth.debian.org/
+ *
+ * Simplified version with hardcoded data for p2w comparison
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define HASH_SIZE 4096
+
+typedef struct {
+    char key[20];
+    int count;
+    int used;
+} hash_entry;
+
+hash_entry hash_table[HASH_SIZE];
+
+/* Simple hash function */
+unsigned int hash(const char *s) {
+    unsigned int h = 0;
+    while (*s) {
+        h = h * 31 + *s++;
+    }
+    return h % HASH_SIZE;
+}
+
+/* Insert or increment count */
+void insert_or_increment(const char *key) {
+    unsigned int h = hash(key);
+    int start = h;
+
+    while (hash_table[h].used) {
+        if (strcmp(hash_table[h].key, key) == 0) {
+            hash_table[h].count++;
+            return;
+        }
+        h = (h + 1) % HASH_SIZE;
+        if (h == start) return; /* Table full */
+    }
+
+    strcpy(hash_table[h].key, key);
+    hash_table[h].count = 1;
+    hash_table[h].used = 1;
+}
+
+/* Get count for key */
+int get_count(const char *key) {
+    unsigned int h = hash(key);
+    int start = h;
+
+    while (hash_table[h].used) {
+        if (strcmp(hash_table[h].key, key) == 0) {
+            return hash_table[h].count;
+        }
+        h = (h + 1) % HASH_SIZE;
+        if (h == start) break;
+    }
+    return 0;
+}
+
+/* Clear hash table */
+void clear_hash() {
+    for (int i = 0; i < HASH_SIZE; i++) {
+        hash_table[i].used = 0;
+        hash_table[i].count = 0;
+    }
+}
+
+/* Count frequencies for frame size */
+void count_frequencies(const char *seq, int seq_len, int frame) {
+    clear_hash();
+    char subseq[20];
+
+    for (int i = 0; i <= seq_len - frame; i++) {
+        strncpy(subseq, seq + i, frame);
+        subseq[frame] = '\0';
+        insert_or_increment(subseq);
+    }
+}
+
+/* Sort and print frequencies */
+void print_frequencies(int total) {
+    /* Collect entries */
+    hash_entry entries[HASH_SIZE];
+    int n = 0;
+
+    for (int i = 0; i < HASH_SIZE; i++) {
+        if (hash_table[i].used) {
+            entries[n++] = hash_table[i];
+        }
+    }
+
+    /* Simple bubble sort by count descending, then key ascending */
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = 0; j < n - i - 1; j++) {
+            int swap = 0;
+            if (entries[j].count < entries[j+1].count) swap = 1;
+            else if (entries[j].count == entries[j+1].count &&
+                     strcmp(entries[j].key, entries[j+1].key) > 0) swap = 1;
+
+            if (swap) {
+                hash_entry tmp = entries[j];
+                entries[j] = entries[j+1];
+                entries[j+1] = tmp;
+            }
+        }
+    }
+
+    /* Print */
+    for (int i = 0; i < n; i++) {
+        printf("%s %.3f\n", entries[i].key, 100.0 * entries[i].count / total);
+    }
+    printf("\n");
+}
+
+int main() {
+    /* Same test sequence as Python version */
+    const char *base =
+        "GGTATTTTAATTTATAGT"
+        "CGATCGATCGATCGATCG"
+        "ATCGATCGATCGATCGAT"
+        "GGTATTTTAATTTATAGT"
+        "AAAAAACCCCCCGGGGGG"
+        "TTTTTTAAAAACCCCCGG"
+        "GGGGTTTTTAAAACCCCG"
+        "GGGTTTTAAAACCCGGGT"
+        "TTTAAAACCGGGTTTTAA"
+        "AACCCGGGTTTTAAAACG";
+
+    /* Repeat 100 times */
+    int base_len = strlen(base);
+    int seq_len = base_len * 100;
+    char *sequence = malloc(seq_len + 1);
+
+    for (int i = 0; i < 100; i++) {
+        memcpy(sequence + i * base_len, base, base_len);
+    }
+    sequence[seq_len] = '\0';
+
+    /* Convert to uppercase */
+    for (int i = 0; i < seq_len; i++) {
+        if (sequence[i] >= 'a' && sequence[i] <= 'z') {
+            sequence[i] -= 32;
+        }
+    }
+
+    /* Output 1-mer frequencies */
+    count_frequencies(sequence, seq_len, 1);
+    print_frequencies(seq_len);
+
+    /* Output 2-mer frequencies */
+    count_frequencies(sequence, seq_len, 2);
+    print_frequencies(seq_len - 1);
+
+    /* Output counts for specific oligos */
+    const char *oligos[] = {"GGT", "GGTA", "GGTATT", "GGTATTTTAATT", "GGTATTTTAATTTATAGT"};
+    int num_oligos = 5;
+
+    for (int i = 0; i < num_oligos; i++) {
+        count_frequencies(sequence, seq_len, strlen(oligos[i]));
+        printf("%d\t%s\n", get_count(oligos[i]), oligos[i]);
+    }
+
+    free(sequence);
+    return 0;
+}

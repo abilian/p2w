@@ -1,0 +1,46 @@
+[project]
+name = "p2w"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Stefane Fermigier", email = "sf@abilian.com" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.urls]
+Homepage = "https://git.sr.ht/~sfermigier/p2w"
+Repository = "https://git.sr.ht/~sfermigier/p2w"
+
+[project.scripts]
+p2w = "p2w:main"
+
+[build-system]
+requires = ["uv_build>=0.9.26,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    # Testing
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "nox>=2025.11.12",
+    # Linting / type checking
+    "mypy>=1.19.1",
+    # "pyrefly>=0.49.0",
+    "ty>=0.0.13",
+    "ruff>=0.14.14",
+    "pre-commit>=4.5.1",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "unit: Unit tests (fast, isolated)",
+    "integration: Integration tests (component interactions)",
+    "e2e: End-to-end tests (full workflows)",
+]
+testpaths = [
+    "tests",
+    "src",
+]

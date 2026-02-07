@@ -1,0 +1,97 @@
+/* The Computer Language Benchmarks Game
+ * http://benchmarksgame.alioth.debian.org/
+ *
+ * Simplified version with hardcoded data for p2w comparison
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* Complement table */
+char complement(char c) {
+    switch(c) {
+        case 'A': case 'a': return 'T';
+        case 'T': case 't': return 'A';
+        case 'C': case 'c': return 'G';
+        case 'G': case 'g': return 'C';
+        case 'B': case 'b': return 'V';
+        case 'V': case 'v': return 'B';
+        case 'D': case 'd': return 'H';
+        case 'H': case 'h': return 'D';
+        case 'K': case 'k': return 'M';
+        case 'M': case 'm': return 'K';
+        case 'N': case 'n': return 'N';
+        case 'R': case 'r': return 'Y';
+        case 'Y': case 'y': return 'R';
+        case 'S': case 's': return 'S';
+        case 'W': case 'w': return 'W';
+        case 'U': case 'u': return 'A';
+        default: return c;
+    }
+}
+
+/* Reverse complement a sequence */
+void reverse_complement(const char *seq, int len, char *result) {
+    for (int i = 0; i < len; i++) {
+        result[i] = complement(seq[len - 1 - i]);
+    }
+    result[len] = '\0';
+}
+
+/* Print sequence with line breaks */
+void print_formatted(const char *seq, int len, int width) {
+    for (int i = 0; i < len; i += width) {
+        int line_len = (i + width <= len) ? width : len - i;
+        for (int j = 0; j < line_len; j++) {
+            putchar(seq[i + j]);
+        }
+        putchar('\n');
+    }
+}
+
+/* Process a single FASTA entry */
+void process_entry(const char *header, const char *sequence) {
+    int len = strlen(sequence);
+    char *rc = malloc(len + 1);
+
+    reverse_complement(sequence, len, rc);
+
+    printf("%s\n", header);
+    print_formatted(rc, len, 60);
+
+    free(rc);
+}
+
+int main() {
+    /* Same test data as Python version - repeated 10 times */
+    const char *fasta =
+        ">ONE Homo sapiens alu\n"
+        "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGA\n"
+        "TCACCTGAGGTCAGGAGTTCGAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACT\n"
+        "AAAAATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCAGCTACTCGGGAG\n"
+        "GCTGAGGCAGGAGAATCGCTTGAACCCGGGAGGCGGAGGTTGCAGTGAGCCGAGATCGCG\n"
+        "CCACTGCACTCCAGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA\n"
+        ">TWO IUB ambiguity codes\n"
+        "TAGGDHACHATCRYGMKWSYYBVNN\n"
+        ">THREE Homo sapiens frequency\n"
+        "ATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGC\n";
+
+    /* Process 10 times */
+    for (int repeat = 0; repeat < 10; repeat++) {
+        const char *entries[] = {
+            ">ONE Homo sapiens alu",
+            "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCAGCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGGAGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCCAGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA",
+            ">TWO IUB ambiguity codes",
+            "TAGGDHACHATCRYGMKWSYYBVNN",
+            ">THREE Homo sapiens frequency",
+            "ATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGC"
+        };
+
+        for (int i = 0; i < 6; i += 2) {
+            process_entry(entries[i], entries[i+1]);
+        }
+    }
+
+    return 0;
+}
