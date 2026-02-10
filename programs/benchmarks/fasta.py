@@ -125,5 +125,5 @@ def main(n: int) -> None:
     random_fasta(homosapiens, n * 5)
 
 
-# Benchmark with n=1000 (increased for more stable timing)
-main(1000)
+# Benchmark with n=25000 (matching alioth)
+main(25000)

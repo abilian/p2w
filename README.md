@@ -173,9 +173,9 @@ The compiler generates WAT code that uses WASM 3.0 GC features for automatic mem
 - [wabt](https://github.com/WebAssembly/wabt) (for `wat2wasm`)
 - A WASM runtime with GC support (e.g., recent Chrome/Firefox, wasmtime with GC enabled)
 
-## Previous art and reference
+## Prior Art and References
 
-It's too long at this point to cite every influence and/or alternative. Here are a few that stand out at this point:
+It's too long at this point to cite every influence and/or alternative. Here are a few that stand out:
 
 - [Compiling Scheme to WebAssembly](https://eli.thegreenplace.net/2026/compiling-scheme-to-webassembly/) - Huge influence on unstucking the project
 - [Compylo](https://github.com/abilian/compylo) - A previous attempt, started by Ethan Zouzoulkowsky (then student at EPITA) in 2023

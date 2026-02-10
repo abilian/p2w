@@ -9,14 +9,14 @@
 # Single-threaded version optimized for p2w
 
 
-def make_tree(depth: int):
+def make_tree(depth: int) -> tuple:
     if depth == 0:
         return (None, None)
     depth = depth - 1
     return (make_tree(depth), make_tree(depth))
 
 
-def check_tree(node) -> int:
+def check_tree(node: tuple) -> int:
     left = node[0]
     right = node[1]
     if left is None:
@@ -34,11 +34,11 @@ def main(n: int) -> None:
 
     stretch_depth: int = max_depth + 1
 
-    stretch_tree = make_tree(stretch_depth)
+    stretch_tree: tuple = make_tree(stretch_depth)
     stretch_check: int = check_tree(stretch_tree)
     print("stretch tree of depth", stretch_depth, "check:", stretch_check)
 
-    long_lived_tree = make_tree(max_depth)
+    long_lived_tree: tuple = make_tree(max_depth)
 
     iterations: int = 1
     i: int = 0

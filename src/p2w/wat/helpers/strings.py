@@ -638,7 +638,7 @@ STRINGS_CODE = """
   ;; DICT - convert to "{key: val, ...}"
   (if (ref.test (ref $DICT) (local.get $v))
     (then
-      (return (call $dict_to_string (struct.get $DICT 0 (ref.cast (ref $DICT) (local.get $v)))))
+      (return (call $dict_to_string (local.get $v)))
     )
   )
   ;; SUPER - return "<super: <class 'X'"

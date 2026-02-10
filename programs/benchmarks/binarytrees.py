@@ -61,5 +61,5 @@ def main(max_depth: int) -> None:
     print("long lived tree of depth", max_depth, "check:", check_tree(long_lived_tree))
 
 
-# Benchmark with depth 8
-main(8)
+# Benchmark with depth 14 (matching alioth)
+main(14)

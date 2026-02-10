@@ -1,7 +1,7 @@
 [project]
 name = "p2w"
 version = "0.1.0"
-description = "Add your description here"
+description = "Python-to-WebAssembly compiler using WASM GC"
 readme = "README.md"
 authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" }

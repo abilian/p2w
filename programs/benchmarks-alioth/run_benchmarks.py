@@ -18,6 +18,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import os
 import shutil
@@ -31,7 +32,7 @@ from datetime import datetime
 from pathlib import Path
 
 from p2w.compiler import compile_to_wat
-from p2w.runner import run_wasm, wat_to_wasm
+from p2w.runner import wat_to_wasm
 
 # Default benchmark configuration
 DEFAULT_WARMUP_RUNS = 2
@@ -264,18 +265,102 @@ def compile_p2w(name: str, python_file: Path, arg: str | None, wasm_path: Path) 
         return elapsed, str(e)
 
 
-def run_p2w(wasm_path: Path, timeout: float = 120.0) -> tuple[str, float]:
-    """Run a WASM file with Node.js. Returns (output, time_seconds)."""
-    start = time.perf_counter()
+def run_p2w_multi(wasm_path: Path, warmup: int, runs: int, timeout: float = 120.0) -> tuple[str, list[float]]:
+    """Run a WASM file multiple times in a single Node.js process.
+
+    This properly warms up V8's JIT and avoids Node.js startup overhead per run.
+    Returns (output, list_of_times_in_seconds).
+    """
+    # Create runner script that runs multiple iterations in one process
+    runner_script = f"""
+import {{ readFileSync }} from 'fs';
+const wasmBuffer = readFileSync('{wasm_path}');
+
+const WARMUP = {warmup};
+const RUNS = {runs};
+
+// Compile WASM module once (outside timing)
+const module = await WebAssembly.compile(wasmBuffer);
+
+const times = [];
+let lastOutput = '';
+
+for (let iter = 0; iter < WARMUP + RUNS; iter++) {{
+  const outputBytes = [];
+  let wasmMemory = null;
+
+  const importObject = {{
+    env: {{
+      write_char: (byte) => {{ outputBytes.push(byte); }},
+      write_i32: (value) => {{ const str = value.toString(); for (let i = 0; i < str.length; i++) outputBytes.push(str.charCodeAt(i)); }},
+      write_i64: (value) => {{ const str = value.toString(); for (let i = 0; i < str.length; i++) outputBytes.push(str.charCodeAt(i)); }},
+      write_f64: (value) => {{ const str = value.toString(); for (let i = 0; i < str.length; i++) outputBytes.push(str.charCodeAt(i)); }},
+      f64_to_string: (value, offset) => {{ const str = value.toString(); const bytes = new TextEncoder().encode(str); const mem = new Uint8Array(wasmMemory.buffer); mem.set(bytes, offset); return bytes.length; }},
+      f64_format_precision: (value, precision, offset) => {{ const str = value.toFixed(precision); const bytes = new TextEncoder().encode(str); const mem = new Uint8Array(wasmMemory.buffer); mem.set(bytes, offset); return bytes.length; }},
+      math_pow: (base, exp) => Math.pow(base, exp),
+    }},
+    js: {{
+      console_log: () => {{}}, alert: () => {{}}, get_element_by_id: () => 0, create_element: () => 0, query_selector: () => 0,
+      get_context: () => 0, canvas_fill_rect: () => {{}}, canvas_fill_text: () => {{}}, canvas_begin_path: () => {{}},
+      canvas_move_to: () => {{}}, canvas_line_to: () => {{}}, canvas_stroke: () => {{}}, canvas_set_fill_style: () => {{}},
+      canvas_set_stroke_style: () => {{}}, canvas_set_line_width: () => {{}}, canvas_set_font: () => {{}},
+      set_text_content: () => {{}}, get_text_content: () => 0, set_inner_html: () => {{}}, get_inner_html: () => 0,
+      get_property: () => 0, set_property: () => {{}}, get_value: () => 0, set_value: () => {{}},
+      append_child: () => {{}}, remove_child: () => {{}}, set_attribute: () => {{}},
+      add_class: () => {{}}, remove_class: () => {{}}, toggle_class: () => {{}},
+      add_event_listener: () => {{}}, prevent_default: () => {{}}, call_method: () => 0,
+    }},
+  }};
+
+  // Time only the instantiation and execution
+  const start = performance.now();
+  const instance = await WebAssembly.instantiate(module, importObject);
+  wasmMemory = instance.exports.memory;
+  instance.exports._start();
+  const elapsed = performance.now() - start;
+
+  // Only record times after warmup
+  if (iter >= WARMUP) {{
+    times.push(elapsed);
+  }}
+
+  lastOutput = new TextDecoder('utf-8').decode(new Uint8Array(outputBytes));
+}}
+
+// Output results as JSON
+console.log(JSON.stringify({{
+  times: times,
+  output: lastOutput
+}}));
+"""
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".mjs", delete=False) as js_file:
+        js_file.write(runner_script)
+        js_path = Path(js_file.name)
+
     try:
-        wasm_bytes = wasm_path.read_bytes()
-        output = run_wasm(wasm_bytes)
-        elapsed = time.perf_counter() - start
-        return output, elapsed
+        result = subprocess.run(
+            ["node", str(js_path)],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            return f"[ERROR] {result.stderr}", []
+
+        data = json.loads(result.stdout)
+        # Convert times from ms to seconds
+        times = [t / 1000.0 for t in data["times"]]
+        return data["output"], times
+
     except subprocess.TimeoutExpired:
-        return "[TIMEOUT]", timeout
+        return "[TIMEOUT]", []
     except Exception as e:
-        return f"[ERROR] {e}", 0.0
+        return f"[ERROR] {e}", []
+    finally:
+        js_path.unlink(missing_ok=True)
 
 
 def run_benchmark(
@@ -361,21 +446,15 @@ def run_benchmark(
             )
         print(f" done ({compile_time*1000:.1f}ms)")
 
-        # Warmup p2w
+        # Run p2w with proper in-process timing (warmup + timed runs in single Node.js process)
         print(f"  [p2w] Warming up ({warmup_runs} runs)...", end="", flush=True)
-        for _ in range(warmup_runs):
-            run_p2w(wasm_file)
         print(" done")
-
-        # Timed p2w runs
         print(f"  [p2w] Timing ({timed_runs} runs)...", end="", flush=True)
-        p2w_times = []
-        p2w_output = ""
-        for _ in range(timed_runs):
-            output, elapsed = run_p2w(wasm_file)
-            p2w_times.append(elapsed)
-            p2w_output = output
-        print(f" min={min(p2w_times)*1000:.1f}ms")
+        p2w_output, p2w_times = run_p2w_multi(wasm_file, warmup_runs, timed_runs)
+        if p2w_times:
+            print(f" min={min(p2w_times)*1000:.1f}ms")
+        else:
+            print(f" FAILED: {p2w_output}")
 
         return BenchmarkResult(
             name=name,

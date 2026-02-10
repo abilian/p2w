@@ -5,7 +5,7 @@
 # Single-threaded version with hardcoded test sequence
 
 # Complement table
-COMPLEMENT = {
+COMPLEMENT: dict[str, str] = {
     "A": "T",
     "T": "A",
     "C": "G",
@@ -41,7 +41,7 @@ COMPLEMENT = {
 }
 
 # Sample FASTA input (normally would come from stdin)
-FASTA_INPUT = """>ONE Homo sapiens alu
+FASTA_INPUT: str = """>ONE Homo sapiens alu
 GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGA
 TCACCTGAGGTCAGGAGTTCGAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACT
 AAAAATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCAGCTACTCGGGAG
@@ -54,16 +54,16 @@ ATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGC
 """
 
 
-def reverse_complement(sequence):
+def reverse_complement(sequence: str) -> str:
     """Compute reverse complement of a DNA sequence."""
     # Reverse the string using slice (O(N) with memory.copy)
-    reversed_seq = sequence[::-1]
+    reversed_seq: str = sequence[::-1]
 
     # Build complement using list+join pattern (O(N) instead of O(N²))
-    result_parts = []
-    i = 0
+    result_parts: list[str] = []
+    i: int = 0
     while i < len(reversed_seq):
-        base = reversed_seq[i]
+        base: str = reversed_seq[i]
         if base in COMPLEMENT:
             result_parts.append(COMPLEMENT[base])
         else:
@@ -73,35 +73,35 @@ def reverse_complement(sequence):
     return "".join(result_parts)
 
 
-def format_sequence(seq, width):
+def format_sequence(seq: str, width: int) -> None:
     """Format sequence with line breaks."""
-    i = 0
+    i: int = 0
     while i < len(seq):
-        end = i + width
+        end: int = i + width
         if end > len(seq):
             end = len(seq)
         # Use slicing instead of char-by-char building (O(W) vs O(W^2))
-        line = seq[i:end]
+        line: str = seq[i:end]
         print(line)
         i = i + width
 
 
-def process_fasta(fasta_input):
+def process_fasta(fasta_input: str) -> None:
     """Process FASTA input and output reverse complements."""
-    lines = fasta_input.split("\n")
-    header = ""
-    sequence_parts = []
+    lines: list[str] = fasta_input.split("\n")
+    header: str = ""
+    sequence_parts: list[str] = []
 
-    i = 0
+    i: int = 0
     while i < len(lines):
-        line = lines[i]
+        line: str = lines[i]
         if len(line) > 0:
             if line[0] == ">":
                 # Output previous sequence if exists
                 if len(sequence_parts) > 0:
                     print(header)
-                    sequence = "".join(sequence_parts)
-                    rc = reverse_complement(sequence)
+                    sequence: str = "".join(sequence_parts)
+                    rc: str = reverse_complement(sequence)
                     format_sequence(rc, 60)
                     sequence_parts = []
                 header = line
@@ -112,14 +112,14 @@ def process_fasta(fasta_input):
     # Output last sequence
     if len(sequence_parts) > 0:
         print(header)
-        sequence = "".join(sequence_parts)
-        rc = reverse_complement(sequence)
+        sequence: str = "".join(sequence_parts)
+        rc: str = reverse_complement(sequence)
         format_sequence(rc, 60)
 
 
-def main():
+def main() -> None:
     # Process the test input multiple times for benchmarking
-    fasta_repeated = FASTA_INPUT * 10
+    fasta_repeated: str = FASTA_INPUT * 10
     process_fasta(fasta_repeated)
 
 

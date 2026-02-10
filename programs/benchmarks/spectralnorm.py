@@ -68,5 +68,5 @@ def main(n: int) -> None:
     print(f"{result:.9f}")
 
 
-# Benchmark with n=100
-main(100)
+# Benchmark with n=500 (matching alioth)
+main(500)

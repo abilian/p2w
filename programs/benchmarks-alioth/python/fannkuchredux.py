@@ -9,14 +9,14 @@
 
 def fannkuch(n: int) -> None:
     # Initialize permutation
-    perm = []
+    perm: list[int] = []
     i: int = 0
     while i < n:
         perm.append(i)
         i = i + 1
 
     # Initialize count
-    count = []
+    count: list[int] = []
     i = 0
     while i < n:
         count.append(0)
@@ -30,7 +30,7 @@ def fannkuch(n: int) -> None:
     m: int = n - 1
 
     # Copy for permutation work
-    perm1 = []
+    perm1: list[int] = []
     i = 0
     while i < n:
         perm1.append(i)

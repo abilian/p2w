@@ -1002,12 +1002,13 @@ DICTS_CODE = """
 )
 
 
-;; dict_copy: shallow copy of dict
+;; dict_copy: shallow copy of dict, or create dict from iterable of (key, value) pairs
 (func $dict_copy (param $dict (ref null eq)) (result (ref null eq))
   (local $new_dict (ref $DICT))
   (local $entries (ref null eq))
   (local $current (ref null eq))
   (local $entry (ref null eq))
+  (local $i i32)
 
   (if (ref.is_null (local.get $dict))
     (then (return (call $dict_new)))
@@ -1038,7 +1039,55 @@ DICTS_CODE = """
     )
   )
 
-  ;; Legacy - copy from PAIR chain
+  ;; Handle $LIST input (e.g., from zip() returning list of tuples)
+  (if (ref.test (ref $LIST) (local.get $dict))
+    (then
+      (local.set $current (local.get $dict))
+      (block $list_done
+        (loop $list_loop
+          ;; Get list data and length
+          (if (i32.ge_s (local.get $i)
+                (struct.get $LIST $len (ref.cast (ref $LIST) (local.get $current))))
+            (then (br $list_done))
+          )
+          ;; Get element at index i
+          (local.set $entry
+            (array.get $ARRAY_ANY
+              (struct.get $LIST $data (ref.cast (ref $LIST) (local.get $current)))
+              (local.get $i)))
+          ;; Entry should be a $TUPLE with 2 elements (key, value)
+          (if (ref.test (ref $TUPLE) (local.get $entry))
+            (then
+              (call $hashtable_set
+                (struct.get $DICT $table (local.get $new_dict))
+                (array.get $ARRAY_ANY
+                  (struct.get $TUPLE $data (ref.cast (ref $TUPLE) (local.get $entry)))
+                  (i32.const 0))
+                (array.get $ARRAY_ANY
+                  (struct.get $TUPLE $data (ref.cast (ref $TUPLE) (local.get $entry)))
+                  (i32.const 1)))
+            )
+            ;; Also handle PAIR entries (legacy)
+            (else
+              (if (ref.test (ref $PAIR) (local.get $entry))
+                (then
+                  (call $hashtable_set
+                    (struct.get $DICT $table (local.get $new_dict))
+                    (struct.get $PAIR 0 (ref.cast (ref $PAIR) (local.get $entry)))
+                    (struct.get $PAIR 1 (ref.cast (ref $PAIR) (local.get $entry))))
+                )
+              )
+            )
+          )
+          (local.set $i (i32.add (local.get $i) (i32.const 1)))
+          (br $list_loop)
+        )
+      )
+      (return (local.get $new_dict))
+    )
+  )
+
+  ;; Legacy - copy from PAIR chain (e.g., from zip() which returns PAIR chain of tuples)
   (local.set $current (local.get $dict))
   (block $done
     (loop $loop
@@ -1047,10 +1096,29 @@ DICTS_CODE = """
         (then (br $done))
       )
       (local.set $entry (struct.get $PAIR 0 (ref.cast (ref $PAIR) (local.get $current))))
-      (call $hashtable_set
-        (struct.get $DICT $table (local.get $new_dict))
-        (struct.get $PAIR 0 (ref.cast (ref $PAIR) (local.get $entry)))
-        (struct.get $PAIR 1 (ref.cast (ref $PAIR) (local.get $entry))))
+      ;; Entry could be a $TUPLE (from zip) or a $PAIR (legacy)
+      (if (ref.test (ref $TUPLE) (local.get $entry))
+        (then
+          (call $hashtable_set
+            (struct.get $DICT $table (local.get $new_dict))
+            (array.get $ARRAY_ANY
+              (struct.get $TUPLE $data (ref.cast (ref $TUPLE) (local.get $entry)))
+              (i32.const 0))
+            (array.get $ARRAY_ANY
+              (struct.get $TUPLE $data (ref.cast (ref $TUPLE) (local.get $entry)))
+              (i32.const 1)))
+        )
+        (else
+          (if (ref.test (ref $PAIR) (local.get $entry))
+            (then
+              (call $hashtable_set
+                (struct.get $DICT $table (local.get $new_dict))
+                (struct.get $PAIR 0 (ref.cast (ref $PAIR) (local.get $entry)))
+                (struct.get $PAIR 1 (ref.cast (ref $PAIR) (local.get $entry))))
+            )
+          )
+        )
+      )
       (local.set $current (struct.get $PAIR 1 (ref.cast (ref $PAIR) (local.get $current))))
       (br $loop)
     )
@@ -1119,9 +1187,6 @@ DICTS_CODE = """
   (block $done
     (loop $loop
       (br_if $done (ref.is_null (local.get $current)))
-      (if (i32.eqz (ref.test (ref $PAIR) (local.get $current)))
-        (then (br $done))
-      )
 
       (if (i32.eqz (local.get $first))
         (then

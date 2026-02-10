@@ -25,13 +25,13 @@ def sqrt(x: float) -> float:
     return guess
 
 
-def make_bodies():
+def make_bodies() -> list[list[float]]:
     # Returns list of [x, y, z, vx, vy, vz, mass]
     # sun
-    sun = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, SOLAR_MASS]
+    sun: list[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, SOLAR_MASS]
 
     # jupiter
-    jupiter = [
+    jupiter: list[float] = [
         4.84143144246472090e00,
         -1.16032004402742839e00,
         -1.03622044471123109e-01,
@@ -42,7 +42,7 @@ def make_bodies():
     ]
 
     # saturn
-    saturn = [
+    saturn: list[float] = [
         8.34336671824457987e00,
         4.12479856412430479e00,
         -4.03523417114321381e-01,
@@ -53,7 +53,7 @@ def make_bodies():
     ]
 
     # uranus
-    uranus = [
+    uranus: list[float] = [
         1.28943695621391310e01,
         -1.51111514016986312e01,
         -2.23307578892655734e-01,
@@ -64,7 +64,7 @@ def make_bodies():
     ]
 
     # neptune
-    neptune = [
+    neptune: list[float] = [
         1.53796971148509165e01,
         -2.59193146099879641e01,
         1.79258772950371181e-01,
@@ -77,9 +77,9 @@ def make_bodies():
     return [sun, jupiter, saturn, uranus, neptune]
 
 
-def make_pairs(bodies):
+def make_pairs(bodies: list[list[float]]) -> list:
     # Create all pairs of bodies
-    pairs = []
+    pairs: list = []
     n: int = len(bodies)
     i: int = 0
     while i < n - 1:
@@ -91,15 +91,15 @@ def make_pairs(bodies):
     return pairs
 
 
-def advance(dt: float, n: int, bodies, pairs) -> None:
+def advance(dt: float, n: int, bodies: list[list[float]], pairs: list) -> None:
     i: int = 0
     while i < n:
         # Update velocities from pairs
         j: int = 0
         while j < len(pairs):
             pair = pairs[j]
-            b1 = pair[0]
-            b2 = pair[1]
+            b1: list[float] = pair[0]
+            b2: list[float] = pair[1]
 
             dx: float = b1[0] - b2[0]
             dy: float = b1[1] - b2[1]
@@ -125,7 +125,7 @@ def advance(dt: float, n: int, bodies, pairs) -> None:
         # Update positions
         k: int = 0
         while k < len(bodies):
-            b = bodies[k]
+            b: list[float] = bodies[k]
             b[0] = b[0] + dt * b[3]
             b[1] = b[1] + dt * b[4]
             b[2] = b[2] + dt * b[5]
@@ -134,13 +134,13 @@ def advance(dt: float, n: int, bodies, pairs) -> None:
         i = i + 1
 
 
-def report_energy(bodies, pairs) -> None:
+def report_energy(bodies: list[list[float]], pairs: list) -> None:
     e: float = 0.0
 
     # Kinetic energy
     i: int = 0
     while i < len(bodies):
-        b = bodies[i]
+        b: list[float] = bodies[i]
         vx: float = b[3]
         vy: float = b[4]
         vz: float = b[5]
@@ -152,8 +152,8 @@ def report_energy(bodies, pairs) -> None:
     j: int = 0
     while j < len(pairs):
         pair = pairs[j]
-        b1 = pair[0]
-        b2 = pair[1]
+        b1: list[float] = pair[0]
+        b2: list[float] = pair[1]
 
         dx: float = b1[0] - b2[0]
         dy: float = b1[1] - b2[1]
@@ -166,29 +166,29 @@ def report_energy(bodies, pairs) -> None:
     print(e)
 
 
-def offset_momentum(bodies) -> None:
+def offset_momentum(bodies: list[list[float]]) -> None:
     px: float = 0.0
     py: float = 0.0
     pz: float = 0.0
 
     i: int = 0
     while i < len(bodies):
-        b = bodies[i]
+        b: list[float] = bodies[i]
         m: float = b[6]
         px = px - b[3] * m
         py = py - b[4] * m
         pz = pz - b[5] * m
         i = i + 1
 
-    sun = bodies[0]
+    sun: list[float] = bodies[0]
     sun[3] = px / SOLAR_MASS
     sun[4] = py / SOLAR_MASS
     sun[5] = pz / SOLAR_MASS
 
 
 def main(n: int) -> None:
-    bodies = make_bodies()
-    pairs = make_pairs(bodies)
+    bodies: list[list[float]] = make_bodies()
+    pairs: list = make_pairs(bodies)
 
     offset_momentum(bodies)
     report_energy(bodies, pairs)

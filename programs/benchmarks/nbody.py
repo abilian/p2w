@@ -155,5 +155,5 @@ def main(n: int) -> None:
     print(f"{report_energy(BODIES, PAIRS):.9f}")
 
 
-# Benchmark: run 1000 steps
-main(1000)
+# Benchmark: run 500000 steps (matching alioth)
+main(500000)
