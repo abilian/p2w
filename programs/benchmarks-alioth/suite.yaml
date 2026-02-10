@@ -1,0 +1,86 @@
+# p2w Benchmark Suite Configuration
+# Based on the Computer Language Benchmarks Game (Alioth)
+
+name: alioth-benchmarks
+
+# Source directories
+python_dir: python
+c_dir: gcc
+rust_dir: rust
+zig_dir: zig
+
+benchmarks:
+  - name: binarytrees
+    python_source: binarytrees.py
+    c_source: binarytrees.gcc
+    # rust_source: binarytrees.rs
+    # zig_source: binarytrees.zig
+    arg: "14"
+    main_call_old: "main(10)"
+    main_call_new: "main({arg})"
+    enabled: true
+
+  - name: fannkuchredux
+    python_source: fannkuchredux.py
+    c_source: fannkuchredux.gcc
+    # rust_source: fannkuchredux.rs
+    # zig_source: fannkuchredux.zig
+    arg: "9"
+    main_call_old: "main(7)"
+    main_call_new: "main({arg})"
+    enabled: true
+
+  - name: fasta
+    python_source: fasta.py
+    c_source: fasta.gcc
+    # rust_source: fasta.rs
+    # zig_source: fasta.zig
+    arg: "25000"
+    main_call_old: "main(1000)"
+    main_call_new: "main({arg})"
+    enabled: true
+
+  - name: mandelbrot
+    python_source: mandelbrot.py
+    c_source: mandelbrot.gcc
+    # rust_source: mandelbrot.rs
+    # zig_source: mandelbrot.zig
+    arg: "500"
+    main_call_old: "main(200)"
+    main_call_new: "main({arg})"
+    enabled: true
+
+  - name: nbody
+    python_source: nbody.py
+    c_source: nbody.gcc
+    # rust_source: nbody.rs
+    # zig_source: nbody.zig
+    arg: "500000"
+    main_call_old: "main(1000)"
+    main_call_new: "main({arg})"
+    enabled: true
+
+  - name: spectralnorm
+    python_source: spectralnorm.py
+    c_source: spectralnorm.gcc
+    # rust_source: spectralnorm.rs
+    # zig_source: spectralnorm.zig
+    arg: "500"
+    main_call_old: "main(100)"
+    main_call_new: "main({arg})"
+    enabled: true
+
+  # These benchmarks use hardcoded data, no argument replacement needed
+  - name: knucleotide
+    python_source: knucleotide.py
+    c_source: knucleotide.gcc
+    # rust_source: knucleotide.rs
+    # zig_source: knucleotide.zig
+    enabled: true
+
+  - name: revcomp
+    python_source: revcomp.py
+    c_source: revcomp.gcc
+    # rust_source: revcomp.rs
+    # zig_source: revcomp.zig
+    enabled: true
