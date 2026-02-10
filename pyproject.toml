@@ -1,13 +1,15 @@
 [project]
 name = "p2w"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python-to-WebAssembly compiler using WASM GC"
 readme = "README.md"
 authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pyyaml>=6.0",
+]
 
 [project.urls]
 Homepage = "https://git.sr.ht/~sfermigier/p2w"
@@ -15,6 +17,7 @@ Repository = "https://git.sr.ht/~sfermigier/p2w"
 
 [project.scripts]
 p2w = "p2w:main"
+p2w-benchmark = "p2w.benchmark.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.9.26,<0.10.0"]
