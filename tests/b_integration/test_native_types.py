@@ -10,7 +10,7 @@ import subprocess
 import pytest
 
 from p2w.compiler import compile_to_wat
-from p2w.runner import run_python, run_wat
+from p2w.runner import run_wat
 
 
 def has_wasm_tools() -> bool:

@@ -544,7 +544,9 @@ def compile_subscript(
     ctx.emitter.line(")")
 
 
-def _compile_slice_index(index: ast.expr | None, default: int, ctx: CompilerContext) -> None:
+def _compile_slice_index(
+    index: ast.expr | None, default: int, ctx: CompilerContext
+) -> None:
     """Compile a slice index expression to i32.
 
     Handles both boxed (ref i31) and native (i32) values correctly.

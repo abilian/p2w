@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from p2w.benchmark.stats import (

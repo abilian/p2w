@@ -378,9 +378,7 @@ class BenchmarkRunner:
             elif compiler == "zig":
                 success, compile_time, error = compile_zig(source_path, exe_path)
             elif compiler == "zig-cc":
-                success, compile_time, error = compile_c_with_zig(
-                    source_path, exe_path
-                )
+                success, compile_time, error = compile_c_with_zig(source_path, exe_path)
             else:
                 success, compile_time, error = compile_c(
                     source_path, exe_path, compiler=compiler
@@ -624,7 +622,16 @@ def format_results_table(session: Session) -> str:
         all_runtimes.update(runtime_results.keys())
 
     # Order runtimes: native compilers first, then Python, then p2w
-    runtime_order = ["gcc", "clang", "zig-cc", "zig", "rustc", "cpython", "pypy", "p2w-nodejs"]
+    runtime_order = [
+        "gcc",
+        "clang",
+        "zig-cc",
+        "zig",
+        "rustc",
+        "cpython",
+        "pypy",
+        "p2w-nodejs",
+    ]
     ordered_runtimes = [r for r in runtime_order if r in all_runtimes]
 
     # Results table with all runtimes as columns
@@ -648,7 +655,9 @@ def format_results_table(session: Session) -> str:
     # p2w performance comparison table
     if "p2w-nodejs" in all_runtimes:
         lines.append("\n" + "=" * 80)
-        lines.append("p2w PERFORMANCE (speedup = how much faster p2w is, <1 means slower)")
+        lines.append(
+            "p2w PERFORMANCE (speedup = how much faster p2w is, <1 means slower)"
+        )
         lines.append("=" * 80)
 
         # Comparison runtimes (exclude p2w-nodejs itself)
@@ -672,7 +681,10 @@ def format_results_table(session: Session) -> str:
             row = f"{bench_name:<15}"
 
             for runtime in compare_runtimes:
-                if runtime in runtime_results and runtime_results[runtime].stats.mean > 0:
+                if (
+                    runtime in runtime_results
+                    and runtime_results[runtime].stats.mean > 0
+                ):
                     other_mean = runtime_results[runtime].stats.mean
                     # Speedup: how much faster p2w is (>1 = p2w faster, <1 = p2w slower)
                     speedup = other_mean / p2w_mean
@@ -700,8 +712,12 @@ def format_results_table(session: Session) -> str:
             if ratio_by_runtime[runtime]:
                 gm = _geometric_mean(ratio_by_runtime[runtime])
                 if gm >= 1:
-                    lines.append(f"  p2w is {gm:.2f}x FASTER than {runtime} (geometric mean)")
+                    lines.append(
+                        f"  p2w is {gm:.2f}x FASTER than {runtime} (geometric mean)"
+                    )
                 else:
-                    lines.append(f"  p2w is {1/gm:.2f}x SLOWER than {runtime} (geometric mean)")
+                    lines.append(
+                        f"  p2w is {1 / gm:.2f}x SLOWER than {runtime} (geometric mean)"
+                    )
 
     return "\n".join(lines)

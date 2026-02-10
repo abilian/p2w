@@ -103,9 +103,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         # Handle zig-cc specially: it requires zig to be available
         filtered = []
         for r in requested:
-            if r == "zig-cc" and "zig-cc" in available_native:
-                filtered.append(r)
-            elif r in available_native:
+            if (
+                r == "zig-cc" and "zig-cc" in available_native
+            ) or r in available_native:
                 filtered.append(r)
         available_native = filtered
     else:
