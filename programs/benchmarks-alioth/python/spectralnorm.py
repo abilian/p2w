@@ -16,7 +16,7 @@ def sqrt(x: float) -> float:
     if x <= 0.0:
         return 0.0
     guess: float = x / 2.0
-    i: int = 0
+    i: i32 = 0
     while i < 20:
         guess = (guess + x / guess) / 2.0
         i = i + 1
@@ -30,10 +30,10 @@ def eval_A(i: int, j: int) -> float:
 
 def eval_A_times_u(u: list[float], n: int) -> list[float]:
     result: list[float] = []
-    i: int = 0
+    i: i32 = 0
     while i < n:
         partial_sum: float = 0.0
-        j: int = 0
+        j: i32 = 0
         while j < n:
             uj: float = u[j]
             partial_sum = partial_sum + eval_A(i, j) * uj
@@ -45,10 +45,10 @@ def eval_A_times_u(u: list[float], n: int) -> list[float]:
 
 def eval_At_times_u(u: list[float], n: int) -> list[float]:
     result: list[float] = []
-    i: int = 0
+    i: i32 = 0
     while i < n:
         partial_sum: float = 0.0
-        j: int = 0
+        j: i32 = 0
         while j < n:
             uj: float = u[j]
             partial_sum = partial_sum + eval_A(j, i) * uj
@@ -65,14 +65,14 @@ def eval_AtA_times_u(u: list[float], n: int) -> list[float]:
 def main(n: int) -> None:
     # Initialize u to all 1s
     u: list[float] = []
-    i: int = 0
+    i: i32 = 0
     while i < n:
         u.append(1.0)
         i = i + 1
 
     # Power iteration
     v: list[float] = []
-    dummy: int = 0
+    dummy: i32 = 0
     while dummy < 10:
         v = eval_AtA_times_u(u, n)
         u = eval_AtA_times_u(v, n)

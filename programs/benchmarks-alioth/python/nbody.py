@@ -18,7 +18,7 @@ def sqrt(x: float) -> float:
     if x <= 0.0:
         return 0.0
     guess: float = x / 2.0
-    i: int = 0
+    i: i32 = 0
     while i < 20:
         guess = (guess + x / guess) / 2.0
         i = i + 1
@@ -81,9 +81,9 @@ def make_pairs(bodies: list[list[float]]) -> list:
     # Create all pairs of bodies
     pairs: list = []
     n: int = len(bodies)
-    i: int = 0
+    i: i32 = 0
     while i < n - 1:
-        j: int = i + 1
+        j: i32 = i + 1
         while j < n:
             pairs.append((bodies[i], bodies[j]))
             j = j + 1
@@ -92,10 +92,10 @@ def make_pairs(bodies: list[list[float]]) -> list:
 
 
 def advance(dt: float, n: int, bodies: list[list[float]], pairs: list) -> None:
-    i: int = 0
+    i: i32 = 0
     while i < n:
         # Update velocities from pairs
-        j: int = 0
+        j: i32 = 0
         while j < len(pairs):
             pair = pairs[j]
             b1: list[float] = pair[0]
@@ -123,7 +123,7 @@ def advance(dt: float, n: int, bodies: list[list[float]], pairs: list) -> None:
             j = j + 1
 
         # Update positions
-        k: int = 0
+        k: i32 = 0
         while k < len(bodies):
             b: list[float] = bodies[k]
             b[0] = b[0] + dt * b[3]
@@ -138,7 +138,7 @@ def report_energy(bodies: list[list[float]], pairs: list) -> None:
     e: float = 0.0
 
     # Kinetic energy
-    i: int = 0
+    i: i32 = 0
     while i < len(bodies):
         b: list[float] = bodies[i]
         vx: float = b[3]
@@ -149,7 +149,7 @@ def report_energy(bodies: list[list[float]], pairs: list) -> None:
         i = i + 1
 
     # Potential energy
-    j: int = 0
+    j: i32 = 0
     while j < len(pairs):
         pair = pairs[j]
         b1: list[float] = pair[0]
@@ -171,7 +171,7 @@ def offset_momentum(bodies: list[list[float]]) -> None:
     py: float = 0.0
     pz: float = 0.0
 
-    i: int = 0
+    i: i32 = 0
     while i < len(bodies):
         b: list[float] = bodies[i]
         m: float = b[6]

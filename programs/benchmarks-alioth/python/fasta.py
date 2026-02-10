@@ -33,7 +33,7 @@ def make_cumulative(table: list) -> tuple[list[float], list[str]]:
     probs: list[float] = []
     chars: list[str] = []
     cp: float = 0.0
-    i: int = 0
+    i: i32 = 0
     while i < len(table):
         pair = table[i]
         cp = cp + pair[1]
@@ -47,7 +47,7 @@ def select_random(probs: list[float], chars: list[str]) -> str:
     """Select a character based on cumulative probabilities."""
     r: float = gen_random()
     # Linear search (simple and works for small tables)
-    i: int = 0
+    i: i32 = 0
     while i < len(probs):
         if r < probs[i]:
             return chars[i]
@@ -96,7 +96,7 @@ def random_fasta(table: list, n: int) -> None:
 
         # Build line using list+join pattern (O(W) instead of O(W²))
         line_parts: list[str] = []
-        i: int = 0
+        i: i32 = 0
         while i < line_len:
             line_parts.append(select_random(probs, chars))
             i = i + 1

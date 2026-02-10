@@ -41,7 +41,7 @@ def main(n: int) -> None:
     long_lived_tree: tuple = make_tree(max_depth)
 
     iterations: int = 1
-    i: int = 0
+    i: i32 = 0
     while i < max_depth:
         iterations = iterations * 2
         i = i + 1

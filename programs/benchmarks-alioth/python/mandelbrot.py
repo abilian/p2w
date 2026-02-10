@@ -14,11 +14,11 @@ def main(size: int) -> None:
     # Just count iterations (for benchmarking without I/O)
     total_in_set: int = 0
 
-    y: int = 0
+    y: i32 = 0
     while y < size:
         fy: float = 2.0 * y / fsize - 1.0
 
-        x: int = 0
+        x: i32 = 0
         while x < size:
             # Complex number c = (cr, ci)
             cr: float = 2.0 * x / fsize - 1.5
@@ -29,9 +29,9 @@ def main(size: int) -> None:
             zi: float = 0.0
 
             # Iterate z = z*z + c
-            i: int = 0
+            iter: i32 = 0
             in_set: int = 1
-            while i < 50:
+            while iter < 50:
                 # z*z = (zr + zi*i)^2 = zr^2 - zi^2 + 2*zr*zi*i
                 zr2: float = zr * zr
                 zi2: float = zi * zi
@@ -39,13 +39,13 @@ def main(size: int) -> None:
                 # Check if |z|^2 > 4
                 if zr2 + zi2 > 4.0:
                     in_set = 0
-                    i = 50  # break
+                    iter = 50  # break
 
                 # z = z*z + c
                 zi = 2.0 * zr * zi + ci
                 zr = zr2 - zi2 + cr
 
-                i = i + 1
+                iter = iter + 1
 
             total_in_set = total_in_set + in_set
             x = x + 1

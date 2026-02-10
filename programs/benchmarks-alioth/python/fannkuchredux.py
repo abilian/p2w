@@ -10,7 +10,7 @@
 def fannkuch(n: int) -> None:
     # Initialize permutation
     perm: list[int] = []
-    i: int = 0
+    i: i32 = 0
     while i < n:
         perm.append(i)
         i = i + 1
@@ -49,14 +49,14 @@ def fannkuch(n: int) -> None:
             flips: int = 0
             while k != 0:
                 # Reverse perm[0:k+1]
-                i = 0
-                j: int = k
-                while i < j:
-                    tmp: int = perm[i]
-                    perm[i] = perm[j]
-                    perm[j] = tmp
-                    i = i + 1
-                    j = j - 1
+                lo: i32 = 0
+                hi: int = k
+                while lo < hi:
+                    tmp: int = perm[lo]
+                    perm[lo] = perm[hi]
+                    perm[hi] = tmp
+                    lo = lo + 1
+                    hi = hi - 1
                 flips = flips + 1
                 k = perm[0]
 
@@ -84,7 +84,7 @@ def fannkuch(n: int) -> None:
 
             # Rotate perm1[0:i+1]
             tmp = perm1[0]
-            j = 0
+            j: i32 = 0
             while j < i:
                 perm1[j] = perm1[j + 1]
                 j = j + 1
