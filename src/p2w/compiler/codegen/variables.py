@@ -20,6 +20,27 @@ if TYPE_CHECKING:
     from p2w.compiler.context import CompilerContext
 
 
+def _box_if_native(ctx: CompilerContext) -> None:
+    """Box the value on stack if it's a native (unboxed) type.
+
+    After compile_expr, if the result is a native type (i32/i64/f64),
+    we need to box it before using it in contexts that expect eqref.
+    """
+    if ctx.has_native_value:
+        native_type = ctx.current_native_type
+        match native_type:
+            case NativeType.I32:
+                ctx.emitter.comment("box i32 -> i31")
+                ctx.emitter.emit_ref_i31()
+            case NativeType.I64:
+                ctx.emitter.comment("box i64 -> INT64")
+                ctx.emitter.emit_struct_new("$INT64")
+            case NativeType.F64:
+                ctx.emitter.comment("box f64 -> FLOAT")
+                ctx.emitter.emit_struct_new("$FLOAT")
+        ctx.clear_native_value()
+
+
 def compile_var_load(name: str, ctx: CompilerContext) -> None:
     """Emit code to load a variable's value."""
     # Check if declared global in current function
@@ -169,6 +190,7 @@ def compile_assignment(name: str, value: ast.expr, ctx: CompilerContext) -> None
     if name in ctx.current_global_decls:
         ctx.emitter.comment(f"assign global '{name}'")
         compile_expr(value, ctx)
+        _box_if_native(ctx)  # Box native values for global
         ctx.emitter.emit_global_set(f"$global_{name}")
         return
 
@@ -184,6 +206,7 @@ def compile_assignment(name: str, value: ast.expr, ctx: CompilerContext) -> None
         ctx.emitter.line(f"(local.get {ctx.local_vars[name]})  ;; get cell")
         ctx.emitter.line("(ref.cast (ref $PAIR))")
         compile_expr(value, ctx)
+        _box_if_native(ctx)  # Box native values for cell
         ctx.emitter.line("(struct.set $PAIR 0)  ;; set cell value")
     elif (
         name in ctx.global_vars
@@ -191,6 +214,7 @@ def compile_assignment(name: str, value: ast.expr, ctx: CompilerContext) -> None
         and len(ctx.lexical_env.frames) <= 1
     ):
         compile_expr(value, ctx)
+        _box_if_native(ctx)  # Box native values for module-level
         ctx.emitter.emit_local_tee(ctx.local_vars[name])
         ctx.emitter.emit_global_set(f"$global_{name}")
     elif name in ctx.native_locals:
@@ -241,11 +265,13 @@ def compile_assignment(name: str, value: ast.expr, ctx: CompilerContext) -> None
                     )
     elif name in ctx.local_vars:
         compile_expr(value, ctx)
+        _box_if_native(ctx)  # Box native values for boxed local
         ctx.emitter.emit_local_set(ctx.local_vars[name])
     else:
         local_name = f"$var_{name}"
         ctx.local_vars[name] = local_name
         compile_expr(value, ctx)
+        _box_if_native(ctx)  # Box native values for boxed local
         ctx.emitter.emit_local_set(local_name)
 
 
@@ -416,6 +442,7 @@ def compile_nonlocal_assignment(
 
     ctx.emitter.line("(ref.cast (ref $PAIR))  ;; cell ref")
     compile_expr(value, ctx)
+    _box_if_native(ctx)  # Box native values for nonlocal
 
     ctx.emitter.line("(struct.set $PAIR 0)  ;; update cell value")
 

@@ -34,6 +34,7 @@ from p2w.compiler.codegen.subscript import (
 from p2w.compiler.codegen.unpacking import compile_tuple_unpack
 from p2w.compiler.codegen.variables import compile_assignment, compile_aug_assignment
 from p2w.compiler.context import CompilerContext  # noqa: TC001
+from p2w.compiler.types import NativeType
 
 # Methods that mutate and return the modified collection
 # Note: setdefault is handled specially in calls.py (multi-value return)
@@ -267,11 +268,34 @@ def _classdef(node: ast.ClassDef, ctx: CompilerContext) -> None:
     compile_class_def(node.name, node.bases, node.body, ctx)
 
 
+def _box_if_native(ctx: CompilerContext) -> None:
+    """Box the value on stack if it's a native (unboxed) type.
+
+    After compile_expr, if the result is a native type (i32/i64/f64),
+    we need to box it before using it in contexts that expect eqref.
+    """
+    if ctx.has_native_value:
+        native_type = ctx.current_native_type
+        match native_type:
+            case NativeType.I32:
+                ctx.emitter.comment("box i32 -> i31")
+                ctx.emitter.emit_ref_i31()
+            case NativeType.I64:
+                ctx.emitter.comment("box i64 -> INT64")
+                ctx.emitter.emit_struct_new("$INT64")
+            case NativeType.F64:
+                ctx.emitter.comment("box f64 -> FLOAT")
+                ctx.emitter.emit_struct_new("$FLOAT")
+        ctx.clear_native_value()
+
+
 @compile_stmt.register
 def _return(node: ast.Return, ctx: CompilerContext) -> None:
     """Compile return statement."""
     if node.value:
         compile_expr(node.value, ctx)
+        # Box native values - function returns (ref null eq)
+        _box_if_native(ctx)
     else:
         ctx.emitter.emit_null_eq()
     ctx.emitter.emit_return()

@@ -544,6 +544,23 @@ def compile_subscript(
     ctx.emitter.line(")")
 
 
+def _compile_slice_index(index: ast.expr | None, default: int, ctx: CompilerContext) -> None:
+    """Compile a slice index expression to i32.
+
+    Handles both boxed (ref i31) and native (i32) values correctly.
+    """
+    if index is None:
+        ctx.emitter.emit_i32_const(default)
+    else:
+        compile_expr(index, ctx)
+        if ctx.has_native_value:
+            # Value is already a native i32, no need to unbox
+            ctx.clear_native_value()
+        else:
+            # Value is boxed, unbox it
+            ctx.emitter.emit_i31_get_s()
+
+
 def compile_slice(container: ast.expr, slc: ast.Slice, ctx: CompilerContext) -> None:
     """Compile slice access.
 
@@ -555,23 +572,9 @@ def compile_slice(container: ast.expr, slc: ast.Slice, ctx: CompilerContext) -> 
     compile_expr(container, ctx)
 
     # Use -999999 as sentinel for "use default" - helper handles positive/negative step
-    if slc.lower:
-        compile_expr(slc.lower, ctx)
-        ctx.emitter.emit_i31_get_s()
-    else:
-        ctx.emitter.emit_i32_const(-999999)
-
-    if slc.upper:
-        compile_expr(slc.upper, ctx)
-        ctx.emitter.emit_i31_get_s()
-    else:
-        ctx.emitter.emit_i32_const(-999999)
-
-    if slc.step:
-        compile_expr(slc.step, ctx)
-        ctx.emitter.emit_i31_get_s()
-    else:
-        ctx.emitter.emit_i32_const(1)
+    _compile_slice_index(slc.lower, -999999, ctx)
+    _compile_slice_index(slc.upper, -999999, ctx)
+    _compile_slice_index(slc.step, 1, ctx)
 
     ctx.emitter.emit_call("$slice")
 
