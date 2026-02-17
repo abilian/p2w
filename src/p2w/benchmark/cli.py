@@ -240,6 +240,92 @@ def cmd_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_check(args: argparse.Namespace) -> int:
+    """Check for performance regressions.
+
+    Compares latest session with previous and exits non-zero if any
+    benchmark regressed beyond the threshold.
+    """
+    db_path = Path(args.db) if args.db else DEFAULT_DB_PATH
+
+    if not db_path.exists():
+        print("No benchmark database found.")
+        return 1
+
+    with BenchmarkDatabase(db_path) as db:
+        latest_id = db.get_latest_session_id()
+        if latest_id is None:
+            print("No sessions to check.")
+            return 1
+
+        # Get previous session
+        sessions = db.list_sessions()
+        if len(sessions) < 2:
+            print("Need at least 2 sessions to check for regressions.")
+            return 0
+
+        # Find previous session (second most recent)
+        prev_id = None
+        for session_id, _, _, _ in sessions:
+            if session_id != latest_id:
+                prev_id = session_id
+                break
+
+        if prev_id is None:
+            print("Could not find previous session.")
+            return 1
+
+        # Compare sessions
+        comparison = db.compare_sessions(prev_id, latest_id)
+
+        threshold = args.threshold
+        regressions = []
+        improvements = []
+
+        print(f"Regression Check (threshold: {threshold * 100:.0f}%)")
+        print("=" * 60)
+        print(f"Comparing session #{prev_id} (baseline) vs #{latest_id} (current)")
+        print()
+
+        for bench_name, runtime_data in sorted(comparison.items()):
+            for runtime, (mean1, mean2, ratio) in sorted(runtime_data.items()):
+                if ratio <= 0:
+                    continue
+
+                pct_change = (ratio - 1) * 100
+
+                if ratio > 1 + threshold:
+                    regressions.append((bench_name, runtime, pct_change, mean1, mean2))
+                elif ratio < 1 - threshold:
+                    improvements.append((bench_name, runtime, pct_change, mean1, mean2))
+
+        # Print results
+        if regressions:
+            print("REGRESSIONS DETECTED:")
+            print("-" * 60)
+            for bench, runtime, pct, old, new in regressions:
+                print(f"  {bench}/{runtime}: {old:.1f}ms -> {new:.1f}ms (+{pct:.1f}%)")
+            print()
+
+        if improvements:
+            print("Improvements:")
+            print("-" * 60)
+            for bench, runtime, pct, old, new in improvements:
+                print(f"  {bench}/{runtime}: {old:.1f}ms -> {new:.1f}ms ({pct:.1f}%)")
+            print()
+
+        if not regressions and not improvements:
+            print("No significant changes detected.")
+            print()
+
+        # Exit code
+        if regressions:
+            print(f"FAILED: {len(regressions)} regression(s) detected")
+            return 1
+        print("PASSED: No regressions")
+        return 0
+
+
 def cmd_compare(args: argparse.Namespace) -> int:
     """Compare two sessions."""
     db_path = Path(args.db) if args.db else DEFAULT_DB_PATH
@@ -423,6 +509,18 @@ def create_parser() -> argparse.ArgumentParser:
         help="Second session ID (default: latest)",
     )
     compare_parser.set_defaults(func=cmd_compare)
+
+    # check command
+    check_parser = subparsers.add_parser(
+        "check", help="Check for performance regressions"
+    )
+    check_parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.10,
+        help="Regression threshold as decimal (default: 0.10 = 10%%)",
+    )
+    check_parser.set_defaults(func=cmd_check)
 
     return parser
 

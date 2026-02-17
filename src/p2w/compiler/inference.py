@@ -269,9 +269,6 @@ class TypeInferencer(ast.NodeVisitor):
         # Determine which variables can use native WASM types
         self._analyze_native_eligibility(node.body)
 
-        # Analyze which variables can use native WASM types
-        self._analyze_native_eligibility(node.body)
-
     def _infer_function_return_type(self, body: list[ast.stmt]) -> BobType:
         """Infer return type from return statements in function body."""
         return_types: list[BobType] = []

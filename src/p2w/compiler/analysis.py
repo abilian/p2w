@@ -317,10 +317,15 @@ def collect_comprehension_locals(body: list[ast.stmt]) -> tuple[set[str], int]:
                 count += 1
                 # Each generator needs its own var and iter locals
                 for gen_idx, gen in enumerate(generators):
+                    locals_set.add(f"$comp_{comp_id}_var_{gen_idx}")
+                    locals_set.add(f"$comp_{comp_id}_iter_{gen_idx}")
+                    # Handle tuple unpacking targets
                     match gen.target:
-                        case ast.Name():
-                            locals_set.add(f"$comp_{comp_id}_var_{gen_idx}")
-                            locals_set.add(f"$comp_{comp_id}_iter_{gen_idx}")
+                        case ast.Tuple(elts=elts) | ast.List(elts=elts):
+                            locals_set.update(
+                                f"$comp_{comp_id}_unpack_{gen_idx}_{i}"
+                                for i, _ in enumerate(elts)
+                            )
                 locals_set.add(f"$comp_{comp_id}_result")
                 # Also visit nested expressions
                 visit_expr(key)
