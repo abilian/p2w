@@ -4,6 +4,72 @@ from __future__ import annotations
 
 INTEGERS_CODE = """
 
+;; =============================================================================
+;; Native i32/i64 Python-style floor division and modulo
+;; =============================================================================
+
+;; i32_floordiv: Python-style floor division for i32
+;; Python's // rounds toward negative infinity, WASM's div_s truncates toward zero
+(func $i32_floordiv (param $a i32) (param $b i32) (result i32)
+  (local $q i32)
+  (local $r i32)
+  (local.set $q (i32.div_s (local.get $a) (local.get $b)))
+  (local.set $r (i32.rem_s (local.get $a) (local.get $b)))
+  ;; If remainder is non-zero and signs of a and b differ, subtract 1
+  (if (result i32) (i32.and
+        (i32.ne (local.get $r) (i32.const 0))
+        (i32.lt_s (i32.xor (local.get $a) (local.get $b)) (i32.const 0)))
+    (then (i32.sub (local.get $q) (i32.const 1)))
+    (else (local.get $q))
+  )
+)
+
+;; i32_mod: Python-style modulo for i32
+;; Python's % has the sign of the divisor, WASM's rem_s has the sign of the dividend
+(func $i32_mod (param $a i32) (param $b i32) (result i32)
+  (local $r i32)
+  (local.set $r (i32.rem_s (local.get $a) (local.get $b)))
+  ;; If remainder is non-zero and signs of r and b differ, add b
+  (if (result i32) (i32.and
+        (i32.ne (local.get $r) (i32.const 0))
+        (i32.lt_s (i32.xor (local.get $r) (local.get $b)) (i32.const 0)))
+    (then (i32.add (local.get $r) (local.get $b)))
+    (else (local.get $r))
+  )
+)
+
+;; i64_floordiv: Python-style floor division for i64
+(func $i64_floordiv (param $a i64) (param $b i64) (result i64)
+  (local $q i64)
+  (local $r i64)
+  (local.set $q (i64.div_s (local.get $a) (local.get $b)))
+  (local.set $r (i64.rem_s (local.get $a) (local.get $b)))
+  ;; If remainder is non-zero and signs of a and b differ, subtract 1
+  (if (result i64) (i32.and
+        (i64.ne (local.get $r) (i64.const 0))
+        (i64.lt_s (i64.xor (local.get $a) (local.get $b)) (i64.const 0)))
+    (then (i64.sub (local.get $q) (i64.const 1)))
+    (else (local.get $q))
+  )
+)
+
+;; i64_mod: Python-style modulo for i64
+(func $i64_mod (param $a i64) (param $b i64) (result i64)
+  (local $r i64)
+  (local.set $r (i64.rem_s (local.get $a) (local.get $b)))
+  ;; If remainder is non-zero and signs of r and b differ, add b
+  (if (result i64) (i32.and
+        (i64.ne (local.get $r) (i64.const 0))
+        (i64.lt_s (i64.xor (local.get $r) (local.get $b)) (i64.const 0)))
+    (then (i64.add (local.get $r) (local.get $b)))
+    (else (local.get $r))
+  )
+)
+
+;; =============================================================================
+;; Boxed integer operations
+;; =============================================================================
+
 ;; int_add: safe integer addition with overflow promotion
 (func $int_add (param $a (ref null eq)) (param $b (ref null eq)) (result (ref null eq))
   (call $pack_int (i64.add (call $to_i64 (local.get $a)) (call $to_i64 (local.get $b))))
@@ -24,49 +90,13 @@ INTEGERS_CODE = """
 
 ;; int_div: integer division (floor division for negative numbers)
 (func $int_div (param $a (ref null eq)) (param $b (ref null eq)) (result (ref null eq))
-  (local $a64 i64)
-  (local $b64 i64)
-  (local $result i64)
-  (local.set $a64 (call $to_i64 (local.get $a)))
-  (local.set $b64 (call $to_i64 (local.get $b)))
-  ;; Python uses floor division: -7 // 2 = -4 (not -3)
-  ;; WASM i64.div_s is truncation: -7 / 2 = -3
-  ;; We need to adjust for negative results
-  (local.set $result (i64.div_s (local.get $a64) (local.get $b64)))
-  ;; If signs differ and there's a remainder, subtract 1
-  (if (i32.and
-        (i64.ne (i64.xor (local.get $a64) (local.get $b64)) (i64.const 0))
-        (i64.ne (i64.rem_s (local.get $a64) (local.get $b64)) (i64.const 0)))
-    (then
-      (if (i64.lt_s (i64.xor (local.get $a64) (local.get $b64)) (i64.const 0))
-        (then
-          (local.set $result (i64.sub (local.get $result) (i64.const 1)))
-        )
-      )
-    )
-  )
-  (call $pack_int (local.get $result))
+  (call $pack_int (call $i64_floordiv (call $to_i64 (local.get $a)) (call $to_i64 (local.get $b))))
 )
 
 
 ;; int_mod: integer modulo (matches Python semantics)
 (func $int_mod (param $a (ref null eq)) (param $b (ref null eq)) (result (ref null eq))
-  (local $a64 i64)
-  (local $b64 i64)
-  (local $result i64)
-  (local.set $a64 (call $to_i64 (local.get $a)))
-  (local.set $b64 (call $to_i64 (local.get $b)))
-  ;; Python modulo: result has same sign as divisor
-  (local.set $result (i64.rem_s (local.get $a64) (local.get $b64)))
-  ;; Adjust if signs of result and divisor differ
-  (if (i32.and
-        (i64.ne (local.get $result) (i64.const 0))
-        (i64.lt_s (i64.xor (local.get $result) (local.get $b64)) (i64.const 0)))
-    (then
-      (local.set $result (i64.add (local.get $result) (local.get $b64)))
-    )
-  )
-  (call $pack_int (local.get $result))
+  (call $pack_int (call $i64_mod (call $to_i64 (local.get $a)) (call $to_i64 (local.get $b))))
 )
 
 

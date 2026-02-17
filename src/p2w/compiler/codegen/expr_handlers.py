@@ -534,9 +534,9 @@ def _compile_int_binop(node: ast.BinOp, ctx: CompilerContext) -> None:
         case ast.Mult():
             ctx.emitter.line("i32.mul")
         case ast.FloorDiv():
-            ctx.emitter.line("i32.div_s")
+            ctx.emitter.line("(call $i32_floordiv)")
         case ast.Mod():
-            ctx.emitter.line("i32.rem_s")
+            ctx.emitter.line("(call $i32_mod)")
         case ast.BitAnd():
             ctx.emitter.line("i32.and")
         case ast.BitOr():
@@ -595,9 +595,9 @@ def _compile_native_binop(
         case ("i32", ast.Mult()):
             ctx.emitter.line("i32.mul")
         case ("i32", ast.FloorDiv()):
-            ctx.emitter.line("i32.div_s")
+            ctx.emitter.line("(call $i32_floordiv)")
         case ("i32", ast.Mod()):
-            ctx.emitter.line("i32.rem_s")
+            ctx.emitter.line("(call $i32_mod)")
         case ("i32", ast.BitAnd()):
             ctx.emitter.line("i32.and")
         case ("i32", ast.BitOr()):
@@ -617,9 +617,9 @@ def _compile_native_binop(
         case ("i64", ast.Mult()):
             ctx.emitter.line("i64.mul")
         case ("i64", ast.FloorDiv()):
-            ctx.emitter.line("i64.div_s")
+            ctx.emitter.line("(call $i64_floordiv)")
         case ("i64", ast.Mod()):
-            ctx.emitter.line("i64.rem_s")
+            ctx.emitter.line("(call $i64_mod)")
         case ("i64", ast.BitAnd()):
             ctx.emitter.line("i64.and")
         case ("i64", ast.BitOr()):

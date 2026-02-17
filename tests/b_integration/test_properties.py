@@ -84,20 +84,6 @@ class TestArithmeticProperties:
         assert p2w1 == p2w2
 
     @given(
-        st.integers(min_value=0, max_value=100),  # Only non-negative for now
-        st.integers(min_value=1, max_value=100),
-    )
-    @settings(max_examples=15, deadline=None)
-    def test_floor_division_nonnegative(self, a, b):
-        """Floor division with non-negative numbers should work."""
-        source = f"print({a} // {b})"
-        py_out, p2w_out, match = compare_outputs(source)
-        assert match, f"Mismatch for {a} // {b}: {py_out!r} vs {p2w_out!r}"
-
-    @pytest.mark.skip(
-        reason="BUG: Floor division with negative numbers wrong (-4//75 gives 0, should be -1)"
-    )
-    @given(
         st.integers(min_value=-100, max_value=100),
         st.integers(min_value=1, max_value=100),
     )
@@ -108,20 +94,6 @@ class TestArithmeticProperties:
         py_out, p2w_out, match = compare_outputs(source)
         assert match, f"Mismatch for {a} // {b}: {py_out!r} vs {p2w_out!r}"
 
-    @given(
-        st.integers(min_value=0, max_value=100),  # Only non-negative for now
-        st.integers(min_value=1, max_value=100),
-    )
-    @settings(max_examples=15, deadline=None)
-    def test_modulo_nonnegative(self, a, b):
-        """Modulo with non-negative numbers should work."""
-        source = f"print({a} % {b})"
-        py_out, p2w_out, match = compare_outputs(source)
-        assert match, f"Mismatch for {a} % {b}: {py_out!r} vs {p2w_out!r}"
-
-    @pytest.mark.skip(
-        reason="BUG: Modulo with negative numbers wrong (-1%2 gives -1, should be 1)"
-    )
     @given(
         st.integers(min_value=-100, max_value=100),
         st.integers(min_value=1, max_value=100),
