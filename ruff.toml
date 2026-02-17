@@ -53,6 +53,13 @@ lint.extend-ignore = [
     "PLR0917",
     "PLR0913",
     "PLR6301",
+    "BLE001", # 	blind-except
+    "PLC0415", #	import-outside-top-level
+    "PLW1510", #	subprocess-run-without-check
+    "PLR0916", #	too-many-boolean-expressions
+    "DTZ005", # 	call-datetime-now-without-tzinfo
+    "FURB113", #	repeated-append
+    "N806", #   	non-lowercase-variable-in-function
 ]
 
 [lint.extend-per-file-ignores]
@@ -70,6 +77,9 @@ lint.extend-ignore = [
     "E501", # line too long in test assertions
     "N802", # naming
     "ARG001", # 	unused-function-argument
+    "SLF001", #	private-member-access
+    "B017", #  	assert-raises-exception
+    "PT011", # 	pytest-raises-too-broad
 ]
 
 [lint.isort]
