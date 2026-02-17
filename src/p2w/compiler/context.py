@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
     from p2w.compiler.codegen.generators import GeneratorContext
     from p2w.compiler.inference import TypeInferencer
-    from p2w.compiler.types import BobType, NativeType
+    from p2w.compiler.types import BaseType, NativeType
     from p2w.emitter import WATEmitter
 
 
@@ -178,7 +178,7 @@ class CompilerContext:
         self._with_counter += 1
         return with_id
 
-    def get_expr_type(self, node: ast.expr) -> BobType:
+    def get_expr_type(self, node: ast.expr) -> BaseType:
         """Get inferred type for expression.
 
         Returns UNKNOWN if type inference is disabled or type cannot be inferred.

@@ -278,16 +278,19 @@ class FunctionInliner(ast.NodeTransformer):
         self.inside_function = True
 
         # Visit children
-        node = self.generic_visit(node)
+        result = self.generic_visit(node)
+        assert isinstance(result, ast.FunctionDef)
 
         # Restore state
         self.inside_function = was_inside
-        return node
+        return result
 
     def visit_Call(self, node: ast.Call) -> ast.expr:
         """Visit a call expression and potentially inline it."""
         # First, visit child nodes
-        node = self.generic_visit(node)
+        visited = self.generic_visit(node)
+        assert isinstance(visited, ast.Call)
+        node = visited
 
         # Only inline inside function bodies (NamedExpr requires declared locals)
         if not self.inside_function:

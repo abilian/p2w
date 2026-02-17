@@ -602,7 +602,7 @@ def format_results_table(session: Session) -> str:
     Returns:
         Formatted table string.
     """
-    lines = []
+    lines: list[str] = []
 
     # Header
     lines.extend(("=" * 100, "BENCHMARK RESULTS", "=" * 100))
@@ -651,7 +651,11 @@ def format_results_table(session: Session) -> str:
 
     # p2w performance comparison table
     if "p2w-nodejs" in all_runtimes:
-        lines.extend(("\n" + "=" * 80, "p2w PERFORMANCE (speedup = how much faster p2w is, <1 means slower)", "=" * 80))
+        lines.extend((
+            "\n" + "=" * 80,
+            "p2w PERFORMANCE (speedup = how much faster p2w is, <1 means slower)",
+            "=" * 80,
+        ))
 
         # Comparison runtimes (exclude p2w-nodejs itself)
         compare_runtimes = [r for r in ordered_runtimes if r != "p2w-nodejs"]

@@ -320,7 +320,7 @@ def compile_and_run_browser(source: str) -> dict:
         wat = compile_to_wat(source)
         wasm = wat_to_wasm(wat)
         return run_browser_wasm(wasm)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         return {
             "success": False,
             "error": f"Compilation failed: {e}",

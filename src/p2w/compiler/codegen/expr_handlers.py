@@ -35,7 +35,7 @@ from p2w.compiler.codegen.subscript import compile_subscript
 from p2w.compiler.codegen.variables import compile_var_load
 from p2w.compiler.context import CompilerContext  # noqa: TC001
 from p2w.compiler.types import (
-    BobType,
+    BaseType,
     F64Type,
     FloatType,
     I64Type,
@@ -555,7 +555,7 @@ def _compile_int_binop(node: ast.BinOp, ctx: CompilerContext) -> None:
 
 
 def _compile_native_binop(
-    node: ast.BinOp, left_type: BobType, right_type: BobType, ctx: CompilerContext
+    node: ast.BinOp, left_type: BaseType, right_type: BaseType, ctx: CompilerContext
 ) -> None:
     """Compile binary operation on native types (i32, i64, f64).
 
@@ -673,7 +673,7 @@ def _compile_native_binop(
 
 
 def _emit_native_operand(
-    expr: ast.expr, expr_type: BobType, target_type: str, ctx: CompilerContext
+    expr: ast.expr, expr_type: BaseType, target_type: str, ctx: CompilerContext
 ) -> None:
     """Emit an operand for native operations, converting if needed."""
     match expr:
@@ -757,7 +757,9 @@ def _emit_native_operand(
                             )
 
 
-def _emit_f64_operand(expr: ast.expr, expr_type: BobType, ctx: CompilerContext) -> None:
+def _emit_f64_operand(
+    expr: ast.expr, expr_type: BaseType, ctx: CompilerContext
+) -> None:
     """Emit an operand as raw f64 on the stack, avoiding unnecessary boxing."""
     match (expr, expr_type):
         # Float constant: emit directly as f64.const

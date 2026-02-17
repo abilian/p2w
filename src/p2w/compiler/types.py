@@ -11,90 +11,90 @@ from enum import Enum
 
 
 @dataclass(frozen=True)
-class BobType:
+class BaseType:
     """Base class for p2w types."""
 
 
 @dataclass(frozen=True)
-class IntType(BobType):
+class IntType(BaseType):
     """Integer type (i31 or INT64) - boxed."""
 
 
 @dataclass(frozen=True)
-class FloatType(BobType):
+class FloatType(BaseType):
     """Float type (f64) - boxed."""
 
 
 # Native WASM types - these use unboxed WASM locals directly
 @dataclass(frozen=True)
-class I32Type(BobType):
+class I32Type(BaseType):
     """Native 32-bit integer - stored as WASM i32."""
 
 
 @dataclass(frozen=True)
-class I64Type(BobType):
+class I64Type(BaseType):
     """Native 64-bit integer - stored as WASM i64."""
 
 
 @dataclass(frozen=True)
-class F64Type(BobType):
+class F64Type(BaseType):
     """Native 64-bit float - stored as WASM f64."""
 
 
 @dataclass(frozen=True)
-class StringType(BobType):
+class StringType(BaseType):
     """String type."""
 
 
 @dataclass(frozen=True)
-class BoolType(BobType):
+class BoolType(BaseType):
     """Boolean type."""
 
 
 @dataclass(frozen=True)
-class NoneType(BobType):
+class NoneType(BaseType):
     """None type."""
 
 
 @dataclass(frozen=True)
-class ListType(BobType):
+class ListType(BaseType):
     """List type with optional element type."""
 
-    element_type: BobType | None = None
+    element_type: BaseType | None = None
 
 
 @dataclass(frozen=True)
-class DictType(BobType):
+class DictType(BaseType):
     """Dict type with optional key/value types."""
 
-    key_type: BobType | None = None
-    value_type: BobType | None = None
+    key_type: BaseType | None = None
+    value_type: BaseType | None = None
 
 
 @dataclass(frozen=True)
-class TupleType(BobType):
+class TupleType(BaseType):
     """Tuple type with element types."""
 
-    element_types: tuple[BobType, ...] = ()
+    element_types: tuple[BaseType, ...] = ()
 
 
 @dataclass(frozen=True)
-class FunctionType(BobType):
+class FunctionType(BaseType):
     """Function type with parameter and return types."""
 
-    param_types: tuple[BobType, ...] = ()
-    return_type: BobType | None = None
+    param_types: tuple[BaseType, ...] = ()
+    return_type: BaseType | None = None
 
 
 @dataclass(frozen=True)
-class ClassType(BobType):
+class ClassType(BaseType):
     """Class type."""
 
     name: str = ""
 
 
 @dataclass(frozen=True)
-class UnknownType(BobType):
+class UnknownType(BaseType):
     """Unknown type (requires runtime dispatch)."""
 
 
@@ -112,7 +112,7 @@ I64 = I64Type()
 F64 = F64Type()
 
 
-def combine_types(left: BobType, right: BobType, op: str) -> BobType:
+def combine_types(left: BaseType, right: BaseType, op: str) -> BaseType:
     """Determine result type of binary operation.
 
     Args:
@@ -235,28 +235,28 @@ def combine_types(left: BobType, right: BobType, op: str) -> BobType:
     return UNKNOWN
 
 
-def is_numeric(typ: BobType) -> bool:
+def is_numeric(typ: BaseType) -> bool:
     """Check if type is numeric (int or float, boxed or native)."""
     return isinstance(typ, (IntType, FloatType, I32Type, I64Type, F64Type))
 
 
-def is_native_type(typ: BobType) -> bool:
+def is_native_type(typ: BaseType) -> bool:
     """Check if type is a native WASM type (unboxed)."""
     return isinstance(typ, (I32Type, I64Type, F64Type))
 
 
-def is_native_int(typ: BobType) -> bool:
+def is_native_int(typ: BaseType) -> bool:
     """Check if type is a native integer type."""
     return isinstance(typ, (I32Type, I64Type))
 
 
-def is_native_float(typ: BobType) -> bool:
+def is_native_float(typ: BaseType) -> bool:
     """Check if type is a native float type."""
     return isinstance(typ, F64Type)
 
 
-def get_native_wasm_type(typ: BobType) -> NativeType | None:
-    """Get the corresponding NativeType for a BobType."""
+def get_native_wasm_type(typ: BaseType) -> NativeType | None:
+    """Get the corresponding NativeType for a BaseType."""
     match typ:
         case I32Type():
             return NativeType.I32
@@ -267,7 +267,7 @@ def get_native_wasm_type(typ: BobType) -> NativeType | None:
     return None
 
 
-def is_known(typ: BobType) -> bool:
+def is_known(typ: BaseType) -> bool:
     """Check if type is known (not Unknown)."""
     return not isinstance(typ, UnknownType)
 

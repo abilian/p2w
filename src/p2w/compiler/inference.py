@@ -18,7 +18,7 @@ from p2w.compiler.types import (
     NONE,
     STRING,
     UNKNOWN,
-    BobType,
+    BaseType,
     DictType,
     FloatType,
     ListType,
@@ -42,9 +42,9 @@ class TypeInferencer(ast.NodeVisitor):
     I32_MAX = 2**31 - 1
 
     def __init__(self) -> None:
-        self.var_types: dict[str, BobType] = {}
-        self.expr_types: dict[int, BobType] = {}  # id(node) -> type
-        self.func_return_types: dict[str, BobType] = {}  # func_name -> return type
+        self.var_types: dict[str, BaseType] = {}
+        self.expr_types: dict[int, BaseType] = {}  # id(node) -> type
+        self.func_return_types: dict[str, BaseType] = {}  # func_name -> return type
         # Native type tracking for unboxed locals
         self.native_vars: dict[str, NativeType] = {}  # var -> native WASM type
         self._escaped_vars: set[str] = set()  # vars that escape to non-native contexts
@@ -58,7 +58,7 @@ class TypeInferencer(ast.NodeVisitor):
             set()
         )  # loop vars that iterate over i32 range (can be promoted to native)
 
-    def infer(self, node: ast.expr) -> BobType:
+    def infer(self, node: ast.expr) -> BaseType:
         """Infer type of expression."""
         cached = self.expr_types.get(id(node))
         if cached:
@@ -70,7 +70,7 @@ class TypeInferencer(ast.NodeVisitor):
         self.expr_types[id(node)] = result
         return result
 
-    def visit_Constant(self, node: ast.Constant) -> BobType:
+    def visit_Constant(self, node: ast.Constant) -> BaseType:
         """Infer type from constant value."""
         match node.value:
             case bool():
@@ -86,18 +86,18 @@ class TypeInferencer(ast.NodeVisitor):
             case _:
                 return UNKNOWN
 
-    def visit_Name(self, node: ast.Name) -> BobType:
+    def visit_Name(self, node: ast.Name) -> BaseType:
         """Look up variable type."""
         return self.var_types.get(node.id, UNKNOWN)
 
-    def visit_BinOp(self, node: ast.BinOp) -> BobType:
+    def visit_BinOp(self, node: ast.BinOp) -> BaseType:
         """Infer type of binary operation."""
         left_type = self.infer(node.left)
         right_type = self.infer(node.right)
         op_name = self._op_to_str(node.op)
         return combine_types(left_type, right_type, op_name)
 
-    def visit_UnaryOp(self, node: ast.UnaryOp) -> BobType:
+    def visit_UnaryOp(self, node: ast.UnaryOp) -> BaseType:
         """Infer type of unary operation."""
         operand_type = self.infer(node.operand)
         match node.op:
@@ -110,11 +110,11 @@ class TypeInferencer(ast.NodeVisitor):
             case _:
                 return UNKNOWN
 
-    def visit_Compare(self, node: ast.Compare) -> BobType:  # noqa: ARG002
+    def visit_Compare(self, node: ast.Compare) -> BaseType:  # noqa: ARG002
         """Comparisons always return bool."""
         return BOOL
 
-    def visit_BoolOp(self, node: ast.BoolOp) -> BobType:
+    def visit_BoolOp(self, node: ast.BoolOp) -> BaseType:
         """Boolean operations return one of their operands."""
         # In Python, and/or return one of the operands, not bool
         # But for simplicity, we treat as returning the common type
@@ -123,7 +123,7 @@ class TypeInferencer(ast.NodeVisitor):
             return types[0]
         return UNKNOWN
 
-    def visit_IfExp(self, node: ast.IfExp) -> BobType:
+    def visit_IfExp(self, node: ast.IfExp) -> BaseType:
         """Ternary expression: return common type of branches."""
         body_type = self.infer(node.body)
         orelse_type = self.infer(node.orelse)
@@ -131,7 +131,7 @@ class TypeInferencer(ast.NodeVisitor):
             return body_type
         return UNKNOWN
 
-    def visit_List(self, node: ast.List) -> BobType:
+    def visit_List(self, node: ast.List) -> BaseType:
         """Infer list type with element type if uniform."""
         if not node.elts:
             return ListType()
@@ -141,12 +141,12 @@ class TypeInferencer(ast.NodeVisitor):
                 return ListType()  # Heterogeneous
         return ListType(elem_type)
 
-    def visit_Tuple(self, node: ast.Tuple) -> BobType:
+    def visit_Tuple(self, node: ast.Tuple) -> BaseType:
         """Infer tuple type with element types."""
         elem_types = tuple(self.infer(elt) for elt in node.elts)
         return TupleType(elem_types)
 
-    def visit_Dict(self, node: ast.Dict) -> BobType:
+    def visit_Dict(self, node: ast.Dict) -> BaseType:
         """Infer dict type with key/value types if uniform."""
         if not node.keys:
             return DictType()
@@ -162,7 +162,7 @@ class TypeInferencer(ast.NodeVisitor):
             value_type = UNKNOWN
         return DictType(key_type, value_type)
 
-    def visit_Subscript(self, node: ast.Subscript) -> BobType:
+    def visit_Subscript(self, node: ast.Subscript) -> BaseType:
         """Infer subscript result type."""
         container_type = self.infer(node.value)
         match container_type:
@@ -177,7 +177,7 @@ class TypeInferencer(ast.NodeVisitor):
                         return elem_types[idx]
         return UNKNOWN
 
-    def visit_Call(self, node: ast.Call) -> BobType:
+    def visit_Call(self, node: ast.Call) -> BaseType:
         """Infer function call result type for known functions."""
         match node.func:
             case ast.Name(id=name):
@@ -224,7 +224,7 @@ class TypeInferencer(ast.NodeVisitor):
                         return self.func_return_types[name]
         return UNKNOWN
 
-    def analyze_assignment(self, target: ast.expr, value_type: BobType) -> None:
+    def analyze_assignment(self, target: ast.expr, value_type: BaseType) -> None:
         """Record type for assignment target."""
         match target:
             case ast.Name(id=name):
@@ -269,9 +269,9 @@ class TypeInferencer(ast.NodeVisitor):
         # Determine which variables can use native WASM types
         self._analyze_native_eligibility(node.body)
 
-    def _infer_function_return_type(self, body: list[ast.stmt]) -> BobType:
+    def _infer_function_return_type(self, body: list[ast.stmt]) -> BaseType:
         """Infer return type from return statements in function body."""
-        return_types: list[BobType] = []
+        return_types: list[BaseType] = []
         self._collect_return_types(body, return_types)
         if not return_types:
             return NONE
@@ -282,7 +282,7 @@ class TypeInferencer(ast.NodeVisitor):
         return UNKNOWN
 
     def _collect_return_types(
-        self, stmts: list[ast.stmt], return_types: list[BobType]
+        self, stmts: list[ast.stmt], return_types: list[BaseType]
     ) -> None:
         """Collect return types from a list of statements."""
         for stmt in stmts:
@@ -386,8 +386,10 @@ class TypeInferencer(ast.NodeVisitor):
                             and isinstance(iter_expr.func, ast.Name)
                             and iter_expr.func.id == "range"
                         ):
-                            existing_type = self.var_types.get(name)
-                            if not is_native_type(existing_type):
+                            loop_var_type = self.var_types.get(name)
+                            if loop_var_type is None or not is_native_type(
+                                loop_var_type
+                            ):
                                 # Always set to INT initially
                                 self.var_types[name] = INT
                                 # Track if this could be i32 (range args are i32)
@@ -418,8 +420,8 @@ class TypeInferencer(ast.NodeVisitor):
                 for s in stmt.orelse:
                     self._analyze_stmt(s)
 
-    def _annotation_to_type(self, ann: ast.expr) -> BobType:
-        """Convert type annotation to BobType."""
+    def _annotation_to_type(self, ann: ast.expr) -> BaseType:
+        """Convert type annotation to BaseType."""
         match ann:
             # Native WASM types (unboxed, high performance)
             case ast.Name(id="i32"):
@@ -520,7 +522,9 @@ class TypeInferencer(ast.NodeVisitor):
             if self._is_incremented_in_body(var_name, body):
                 # Check if variable is int-typed
                 var_type = self.var_types.get(var_name)
-                if var_type == INT or is_native_type(var_type):
+                if var_type == INT or (
+                    var_type is not None and is_native_type(var_type)
+                ):
                     candidates.add(var_name)
 
         return candidates
@@ -851,6 +855,6 @@ class TypeInferencer(ast.NodeVisitor):
                 for child in ast.iter_child_nodes(node):
                     self._mark_escaped_in_lambda(child, param_names)
 
-    def generic_visit(self, node: ast.AST) -> BobType:  # noqa: ARG002
+    def generic_visit(self, node: ast.AST) -> BaseType:  # noqa: ARG002
         """Default: return unknown type."""
         return UNKNOWN

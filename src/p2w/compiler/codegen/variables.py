@@ -319,22 +319,22 @@ def _emit_raw_f64_value(value: ast.expr, ctx: CompilerContext) -> None:
                 f"(f64.convert_i32_s (local.get {native_local}))  ;; native i32 to f64"
             )
         # BinOp producing native f64 - emit native binop
-        case (ast.BinOp(), F64Type()):
-            from p2w.compiler.codegen.expr_handlers import (  # noqa: PLC0415
+        case (ast.BinOp() as binop, F64Type()):
+            from p2w.compiler.codegen.expr_handlers import (
                 _compile_native_binop,
             )
 
             _compile_native_binop(
-                value,
-                ctx.get_expr_type(value.left),
-                ctx.get_expr_type(value.right),
+                binop,
+                ctx.get_expr_type(binop.left),
+                ctx.get_expr_type(binop.right),
                 ctx,
             )
             ctx.clear_native_value()
         # BinOp producing float - recursively emit raw
         case (ast.BinOp() as binop, FloatType()):
             # Late import to avoid circular import
-            from p2w.compiler.codegen.expr_handlers import (  # noqa: PLC0415
+            from p2w.compiler.codegen.expr_handlers import (
                 _compile_float_binop_raw,
             )
 
@@ -397,15 +397,15 @@ def _emit_raw_i32_value(value: ast.expr, ctx: CompilerContext) -> None:
             native_local = ctx.get_native_local_name(var_name)
             ctx.emitter.line(f"(local.get {native_local})  ;; native i32")
         # BinOp producing native i32 - emit native binop
-        case (ast.BinOp(), I32Type()):
-            from p2w.compiler.codegen.expr_handlers import (  # noqa: PLC0415
+        case (ast.BinOp() as binop, I32Type()):
+            from p2w.compiler.codegen.expr_handlers import (
                 _compile_native_binop,
             )
 
             _compile_native_binop(
-                value,
-                ctx.get_expr_type(value.left),
-                ctx.get_expr_type(value.right),
+                binop,
+                ctx.get_expr_type(binop.left),
+                ctx.get_expr_type(binop.right),
                 ctx,
             )
             ctx.clear_native_value()
