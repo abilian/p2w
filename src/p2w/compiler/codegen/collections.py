@@ -75,7 +75,7 @@ def compile_dict(
 ) -> None:
     """Compile dict literal using hash table for O(1) operations."""
 
-    has_spread = any(k is None for k in keys)
+    any(k is None for k in keys)
 
     if not keys:
         ctx.emitter.emit_empty_dict()

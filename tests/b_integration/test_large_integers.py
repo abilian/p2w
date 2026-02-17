@@ -33,17 +33,17 @@ class TestI31Boundaries:
 
     def test_zero(self):
         source = "print(0)"
-        py_out, p2w_out, match = compare_outputs(source)
+        _py_out, _p2w_out, match = compare_outputs(source)
         assert match
 
     def test_small_positive(self):
         source = "print(42)"
-        py_out, p2w_out, match = compare_outputs(source)
+        _py_out, _p2w_out, match = compare_outputs(source)
         assert match
 
     def test_small_negative(self):
         source = "print(-42)"
-        py_out, p2w_out, match = compare_outputs(source)
+        _py_out, _p2w_out, match = compare_outputs(source)
         assert match
 
 
@@ -82,7 +82,7 @@ class TestArithmeticAcrossBoundaries:
     def test_i31_plus_i31_stays_i31(self):
         # Result: 100 (still i31)
         source = "print(50 + 50)"
-        py_out, p2w_out, match = compare_outputs(source)
+        _py_out, _p2w_out, match = compare_outputs(source)
         assert match
 
     def test_i31_max_plus_one(self):

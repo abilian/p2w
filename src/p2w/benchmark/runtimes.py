@@ -324,7 +324,8 @@ def run_python(
     info = runtimes.get(runtime)
 
     if not info or not info.available or not info.path:
-        raise ValueError(f"Runtime '{runtime}' is not available")
+        msg = f"Runtime '{runtime}' is not available"
+        raise ValueError(msg)
 
     # Write source to temp file
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as tmp:
@@ -474,7 +475,8 @@ def run_wasm_nodejs(
     """
     nodejs = detect_nodejs()
     if not nodejs.available:
-        raise ValueError("Node.js is not available")
+        msg = "Node.js is not available"
+        raise ValueError(msg)
 
     # Write WASM to temp file
     with tempfile.NamedTemporaryFile(suffix=".wasm", delete=False) as wasm_file:
@@ -610,9 +612,9 @@ def compile_c(
 
     # Determine file extension and language flag
     suffix = source_path.suffix.lower()
-    if suffix in (".c", ".gcc"):
+    if suffix in {".c", ".gcc"}:
         lang_flag = ["-x", "c"]
-    elif suffix in (".cpp", ".cc", ".cxx"):
+    elif suffix in {".cpp", ".cc", ".cxx"}:
         lang_flag = ["-x", "c++"]
     else:
         lang_flag = ["-x", "c"]  # Default to C
@@ -787,9 +789,9 @@ def compile_c_with_zig(
 
     # Determine file extension and language flag
     suffix = source_path.suffix.lower()
-    if suffix in (".c", ".gcc"):
+    if suffix in {".c", ".gcc"}:
         lang_flag = ["-x", "c"]
-    elif suffix in (".cpp", ".cc", ".cxx"):
+    elif suffix in {".cpp", ".cc", ".cxx"}:
         lang_flag = ["-x", "c++"]
     else:
         lang_flag = ["-x", "c"]  # Default to C

@@ -327,7 +327,7 @@ class BenchmarkRunner:
         import tempfile
 
         # Determine source file and runtime name
-        if compiler in ("gcc", "clang"):
+        if compiler in {"gcc", "clang"}:
             source_path = config.c_source
             runtime_name = compiler
             runtime_key = compiler
@@ -605,9 +605,7 @@ def format_results_table(session: Session) -> str:
     lines = []
 
     # Header
-    lines.append("=" * 100)
-    lines.append("BENCHMARK RESULTS")
-    lines.append("=" * 100)
+    lines.extend(("=" * 100, "BENCHMARK RESULTS", "=" * 100))
 
     # Group results by benchmark
     benchmarks: dict[str, dict[str, BenchmarkResult]] = {}
@@ -639,8 +637,7 @@ def format_results_table(session: Session) -> str:
     header = f"{'Benchmark':<15}"
     for runtime in ordered_runtimes:
         header += f" {runtime:>12}"
-    lines.append(header)
-    lines.append("-" * (15 + 13 * len(ordered_runtimes)))
+    lines.extend((header, "-" * (15 + 13 * len(ordered_runtimes))))
 
     for bench_name, runtime_results in sorted(benchmarks.items()):
         row = f"{bench_name:<15}"
@@ -654,11 +651,7 @@ def format_results_table(session: Session) -> str:
 
     # p2w performance comparison table
     if "p2w-nodejs" in all_runtimes:
-        lines.append("\n" + "=" * 80)
-        lines.append(
-            "p2w PERFORMANCE (speedup = how much faster p2w is, <1 means slower)"
-        )
-        lines.append("=" * 80)
+        lines.extend(("\n" + "=" * 80, "p2w PERFORMANCE (speedup = how much faster p2w is, <1 means slower)", "=" * 80))
 
         # Comparison runtimes (exclude p2w-nodejs itself)
         compare_runtimes = [r for r in ordered_runtimes if r != "p2w-nodejs"]
@@ -666,8 +659,7 @@ def format_results_table(session: Session) -> str:
         header = f"{'Benchmark':<15}"
         for runtime in compare_runtimes:
             header += f" {'vs ' + runtime:>12}"
-        lines.append(header)
-        lines.append("-" * (15 + 13 * len(compare_runtimes)))
+        lines.extend((header, "-" * (15 + 13 * len(compare_runtimes))))
 
         # Collect ratios for geometric mean
         ratio_by_runtime: dict[str, list[float]] = {r: [] for r in compare_runtimes}

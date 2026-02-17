@@ -9,7 +9,6 @@ which have variable timing.
 
 from __future__ import annotations
 
-import pytest
 from hypothesis import given, settings, strategies as st
 
 from p2w.testing import compare_outputs
@@ -64,9 +63,10 @@ class TestArithmeticProperties:
         """Addition should be commutative."""
         source1 = f"print({a} + {b})"
         source2 = f"print({b} + {a})"
-        py1, p2w1, match1 = compare_outputs(source1)
-        py2, p2w2, match2 = compare_outputs(source2)
-        assert match1 and match2
+        _py1, p2w1, match1 = compare_outputs(source1)
+        _py2, p2w2, match2 = compare_outputs(source2)
+        assert match1
+        assert match2
         assert p2w1 == p2w2
 
     @given(
@@ -78,9 +78,10 @@ class TestArithmeticProperties:
         """Multiplication should be commutative."""
         source1 = f"print({a} * {b})"
         source2 = f"print({b} * {a})"
-        py1, p2w1, match1 = compare_outputs(source1)
-        py2, p2w2, match2 = compare_outputs(source2)
-        assert match1 and match2
+        _py1, p2w1, match1 = compare_outputs(source1)
+        _py2, p2w2, match2 = compare_outputs(source2)
+        assert match1
+        assert match2
         assert p2w1 == p2w2
 
     @given(
@@ -132,7 +133,7 @@ class TestComparisonProperties:
     def test_equality_reflexive(self, n):
         """Equality should be reflexive: n == n."""
         source = f"print({n} == {n})"
-        py_out, p2w_out, match = compare_outputs(source)
+        _py_out, p2w_out, match = compare_outputs(source)
         assert match
         assert p2w_out.strip() == "True"
 
@@ -177,7 +178,7 @@ class TestBooleanProperties:
     def test_and_operation(self, a, b):
         """Boolean AND should match Python."""
         source = f"print({a} and {b})"
-        py_out, p2w_out, match = compare_outputs(source)
+        _py_out, _p2w_out, match = compare_outputs(source)
         assert match
 
     @given(st.booleans(), st.booleans())
@@ -185,7 +186,7 @@ class TestBooleanProperties:
     def test_or_operation(self, a, b):
         """Boolean OR should match Python."""
         source = f"print({a} or {b})"
-        py_out, p2w_out, match = compare_outputs(source)
+        _py_out, _p2w_out, match = compare_outputs(source)
         assert match
 
     @given(st.booleans())
@@ -193,5 +194,5 @@ class TestBooleanProperties:
     def test_not_operation(self, a):
         """Boolean NOT should match Python."""
         source = f"print(not {a})"
-        py_out, p2w_out, match = compare_outputs(source)
+        _py_out, _p2w_out, match = compare_outputs(source)
         assert match

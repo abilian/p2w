@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from typing_extensions import Self
+
 from p2w.benchmark.runtimes import RuntimeInfo
 from p2w.benchmark.stats import BenchmarkStats
 
@@ -88,7 +90,7 @@ class BenchmarkDatabase:
         self.db_path = Path(db_path)
         self.conn: sqlite3.Connection | None = None
 
-    def __enter__(self) -> BenchmarkDatabase:
+    def __enter__(self) -> Self:
         """Open database connection."""
         self.open()
         return self
@@ -169,7 +171,8 @@ class BenchmarkDatabase:
             Session ID.
         """
         if not self.conn:
-            raise RuntimeError("Database not open")
+            msg = "Database not open"
+            raise RuntimeError(msg)
 
         cursor = self.conn.cursor()
 
@@ -186,7 +189,8 @@ class BenchmarkDatabase:
         )
         session_id = cursor.lastrowid
         if session_id is None:
-            raise RuntimeError("Failed to get session ID")
+            msg = "Failed to get session ID"
+            raise RuntimeError(msg)
 
         # Insert results
         for result in session.results:
@@ -241,7 +245,8 @@ class BenchmarkDatabase:
             Session or None if not found.
         """
         if not self.conn:
-            raise RuntimeError("Database not open")
+            msg = "Database not open"
+            raise RuntimeError(msg)
 
         cursor = self.conn.cursor()
 
@@ -323,7 +328,8 @@ class BenchmarkDatabase:
             List of (id, timestamp, description, git_commit) tuples.
         """
         if not self.conn:
-            raise RuntimeError("Database not open")
+            msg = "Database not open"
+            raise RuntimeError(msg)
 
         cursor = self.conn.cursor()
         cursor.execute(
@@ -342,7 +348,8 @@ class BenchmarkDatabase:
             Session ID or None if no sessions exist.
         """
         if not self.conn:
-            raise RuntimeError("Database not open")
+            msg = "Database not open"
+            raise RuntimeError(msg)
 
         cursor = self.conn.cursor()
         cursor.execute("SELECT MAX(id) FROM sessions")
