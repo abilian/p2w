@@ -212,40 +212,11 @@ def _binop(node: ast.BinOp, ctx: CompilerContext) -> None:
     # Only use when both types are known
     if left_known and right_known:
         match (left_type, right_type, op):
-            # Integer + Integer -> direct i32 arithmetic
-            # Only use fast path when RESULT fits in i31 (not just operands)
-            case (IntType(), IntType(), ast.Add()) if (
+            # Integer arithmetic: use fast i32 path when result fits in i31
+            case (IntType(), IntType(), ast.Add() | ast.Sub() | ast.Mult()) if (
                 _is_small_int_expr(left)
                 and _is_small_int_expr(right)
-                and isinstance(left, ast.Constant)
-                and isinstance(right, ast.Constant)
-                and isinstance(left.value, int)
-                and isinstance(right.value, int)
-                and I31_MIN <= left.value + right.value <= I31_MAX
-            ):
-                _compile_int_binop(node, ctx)
-                return
-
-            case (IntType(), IntType(), ast.Sub()) if (
-                _is_small_int_expr(left)
-                and _is_small_int_expr(right)
-                and isinstance(left, ast.Constant)
-                and isinstance(right, ast.Constant)
-                and isinstance(left.value, int)
-                and isinstance(right.value, int)
-                and I31_MIN <= left.value - right.value <= I31_MAX
-            ):
-                _compile_int_binop(node, ctx)
-                return
-
-            case (IntType(), IntType(), ast.Mult()) if (
-                _is_small_int_expr(left)
-                and _is_small_int_expr(right)
-                and isinstance(left, ast.Constant)
-                and isinstance(right, ast.Constant)
-                and isinstance(left.value, int)
-                and isinstance(right.value, int)
-                and I31_MIN <= left.value * right.value <= I31_MAX
+                and not _operation_might_overflow(left, op, right)
             ):
                 _compile_int_binop(node, ctx)
                 return
@@ -389,13 +360,7 @@ def _binop(node: ast.BinOp, ctx: CompilerContext) -> None:
                 ctx.emitter.emit_call("$sub_dispatch")
                 return
 
-        case ast.Div():
-            # Division always returns float, always use dispatch
-            ctx.emitter.comment("true division (returns float)")
-            compile_expr(left, ctx)
-            compile_expr(right, ctx)
-            ctx.emitter.emit_call("$div_dispatch")
-            return
+        # Note: ast.Div() is handled early (lines 203-209) with unconditional return
 
         case ast.FloorDiv():
             # Floor division needs dispatch for unknown types
