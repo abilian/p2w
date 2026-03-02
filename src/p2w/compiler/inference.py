@@ -7,6 +7,7 @@ enabling specialized code generation for known types.
 from __future__ import annotations
 
 import ast
+from typing import ClassVar
 
 from p2w.compiler.types import (
     BOOL,
@@ -40,6 +41,45 @@ class TypeInferencer(ast.NodeVisitor):
     # i32 range: -2147483648 to 2147483647
     I32_MIN = -(2**31)
     I32_MAX = 2**31 - 1
+
+    # Operator to string mapping (class constant, not rebuilt per call)
+    _OP_MAP: ClassVar[dict[type, str]] = {
+        ast.Add: "+",
+        ast.Sub: "-",
+        ast.Mult: "*",
+        ast.Div: "/",
+        ast.FloorDiv: "//",
+        ast.Mod: "%",
+        ast.Pow: "**",
+        ast.LShift: "<<",
+        ast.RShift: ">>",
+        ast.BitOr: "|",
+        ast.BitXor: "^",
+        ast.BitAnd: "&",
+        ast.MatMult: "@",
+    }
+
+    # Simple type annotation name -> type mappings
+    _SIMPLE_ANNOTATIONS: ClassVar[dict[str, BaseType]] = {
+        "i32": I32,
+        "i64": I64,
+        "f64": F64,
+        "int": INT,
+        "float": FLOAT,
+        "str": STRING,
+        "bool": BOOL,
+    }
+
+    # Type constructor function returns
+    _TYPE_CONSTRUCTORS: ClassVar[dict[str, BaseType]] = {
+        "int": INT,
+        "float": FLOAT,
+        "str": STRING,
+        "bool": BOOL,
+        "chr": STRING,
+        "any": BOOL,
+        "all": BOOL,
+    }
 
     def __init__(self) -> None:
         self.var_types: dict[str, BaseType] = {}
@@ -181,47 +221,35 @@ class TypeInferencer(ast.NodeVisitor):
         """Infer function call result type for known functions."""
         match node.func:
             case ast.Name(id=name):
-                match name:
-                    # Type constructors
-                    case "int":
-                        return INT
-                    case "float":
-                        return FLOAT
-                    case "str":
-                        return STRING
-                    case "bool":
-                        return BOOL
-                    case "list":
-                        return ListType()
-                    case "dict":
-                        return DictType()
-                    case "tuple":
-                        return TupleType()
-                    # Len returns int
-                    case "len":
-                        return INT
-                    # Builtins that return specific types
-                    case "abs" | "sum" | "min" | "max" | "ord":
-                        if node.args:
-                            arg_type = self.infer(node.args[0])
-                            if name == "ord":
-                                return INT
-                            if name in {"sum", "min", "max"}:
-                                # Returns element type or int
-                                match arg_type:
-                                    case ListType(element_type=elem_type) if elem_type:
-                                        return elem_type
-                            return arg_type
-                        return INT
-                    case "chr":
-                        return STRING
-                    case "range":
-                        return ListType(INT)
-                    case "any" | "all":
-                        return BOOL
-                    case _ if name in self.func_return_types:
-                        # Check for user-defined function return type
-                        return self.func_return_types[name]
+                # Check simple type constructors first
+                if name in self._TYPE_CONSTRUCTORS:
+                    return self._TYPE_CONSTRUCTORS[name]
+                # Collection constructors
+                if name == "list":
+                    return ListType()
+                if name == "dict":
+                    return DictType()
+                if name == "tuple":
+                    return TupleType()
+                if name == "range":
+                    return ListType(INT)
+                if name == "len":
+                    return INT
+                # Builtins that return based on argument type
+                if name in {"abs", "sum", "min", "max", "ord"}:
+                    if node.args:
+                        arg_type = self.infer(node.args[0])
+                        if name == "ord":
+                            return INT
+                        if name in {"sum", "min", "max"}:
+                            match arg_type:
+                                case ListType(element_type=elem_type) if elem_type:
+                                    return elem_type
+                        return arg_type
+                    return INT
+                # User-defined function return type
+                if name in self.func_return_types:
+                    return self.func_return_types[name]
         return UNKNOWN
 
     def analyze_assignment(self, target: ast.expr, value_type: BaseType) -> None:
@@ -423,40 +451,27 @@ class TypeInferencer(ast.NodeVisitor):
     def _annotation_to_type(self, ann: ast.expr) -> BaseType:
         """Convert type annotation to BaseType."""
         match ann:
-            # Native WASM types (unboxed, high performance)
-            case ast.Name(id="i32"):
-                return I32
-            case ast.Name(id="i64"):
-                return I64
-            case ast.Name(id="f64"):
-                return F64
-            # Boxed Python types
-            case ast.Name(id="int"):
-                return INT
-            case ast.Name(id="float"):
-                return FLOAT
-            case ast.Name(id="str"):
-                return STRING
-            case ast.Name(id="bool"):
-                return BOOL
-            case ast.Name(id="list"):
-                return ListType()
-            case ast.Name(id="dict"):
-                return DictType()
-            case ast.Name(id="tuple"):
-                return TupleType()
+            case ast.Name(id=name):
+                # Check simple type mappings (i32, i64, f64, int, float, str, bool)
+                if name in self._SIMPLE_ANNOTATIONS:
+                    return self._SIMPLE_ANNOTATIONS[name]
+                # Collection types without parameters
+                if name == "list":
+                    return ListType()
+                if name == "dict":
+                    return DictType()
+                if name == "tuple":
+                    return TupleType()
             case ast.Constant(value=None):
                 return NONE
             # Handle subscript annotations like list[float], dict[str, int]
             case ast.Subscript(value=ast.Name(id="list"), slice=slice_node):
-                # list[element_type]
                 elem_type = self._annotation_to_type(slice_node)
                 return ListType(elem_type)
             case ast.Subscript(
                 value=ast.Name(id="dict"),
                 slice=ast.Tuple(elts=[key_ann, val_ann]),
             ):
-                # dict[key_type, value_type]
                 key_type = self._annotation_to_type(key_ann)
                 val_type = self._annotation_to_type(val_ann)
                 return DictType(key_type, val_type)
@@ -464,29 +479,13 @@ class TypeInferencer(ast.NodeVisitor):
                 value=ast.Name(id="tuple"),
                 slice=ast.Tuple(elts=elem_anns),
             ):
-                # tuple[type1, type2, ...]
                 elem_types = tuple(self._annotation_to_type(e) for e in elem_anns)
                 return TupleType(elem_types)
         return UNKNOWN
 
     def _op_to_str(self, op: ast.operator) -> str:
         """Convert AST operator to string."""
-        op_map = {
-            ast.Add: "+",
-            ast.Sub: "-",
-            ast.Mult: "*",
-            ast.Div: "/",
-            ast.FloorDiv: "//",
-            ast.Mod: "%",
-            ast.Pow: "**",
-            ast.LShift: "<<",
-            ast.RShift: ">>",
-            ast.BitOr: "|",
-            ast.BitXor: "^",
-            ast.BitAnd: "&",
-            ast.MatMult: "@",
-        }
-        return op_map.get(type(op), "?")
+        return self._OP_MAP.get(type(op), "?")
 
     def _is_large_int_literal(self, node: ast.expr) -> bool:
         """Check if node is an integer literal outside i32 range."""
@@ -719,24 +718,15 @@ class TypeInferencer(ast.NodeVisitor):
 
             case ast.For(body=body, orelse=orelse, iter=iter_expr):
                 self._find_escaped_vars(iter_expr)
-                for stmt in body:
-                    self._find_escaped_vars(stmt)
-                for stmt in orelse:
-                    self._find_escaped_vars(stmt)
+                self._find_escaped_in_stmts(body, orelse)
 
             case ast.While(body=body, orelse=orelse, test=test):
                 self._find_escaped_vars(test)
-                for stmt in body:
-                    self._find_escaped_vars(stmt)
-                for stmt in orelse:
-                    self._find_escaped_vars(stmt)
+                self._find_escaped_in_stmts(body, orelse)
 
             case ast.If(body=body, orelse=orelse, test=test):
                 self._find_escaped_vars(test)
-                for stmt in body:
-                    self._find_escaped_vars(stmt)
-                for stmt in orelse:
-                    self._find_escaped_vars(stmt)
+                self._find_escaped_in_stmts(body, orelse)
 
             case ast.Expr(value=value):
                 self._find_escaped_vars(value)
@@ -778,6 +768,15 @@ class TypeInferencer(ast.NodeVisitor):
                 # Recurse into child nodes
                 for child in ast.iter_child_nodes(node):
                     self._find_escaped_vars(child)
+
+    def _find_escaped_in_stmts(
+        self, body: list[ast.stmt], orelse: list[ast.stmt]
+    ) -> None:
+        """Find escaped vars in body and orelse statement lists."""
+        for stmt in body:
+            self._find_escaped_vars(stmt)
+        for stmt in orelse:
+            self._find_escaped_vars(stmt)
 
     def _mark_escaped(self, node: ast.expr) -> None:
         """Mark variables in expression as escaped.

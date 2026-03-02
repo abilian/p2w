@@ -9,6 +9,91 @@ This module provides static analysis of Python AST before emission:
 from __future__ import annotations
 
 import ast
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+
+class _SkipNestedScopes(ast.NodeVisitor):
+    """Base visitor that doesn't recurse into nested function scopes."""
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        pass
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        pass
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        pass
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        pass
+
+
+def _collect_decls(
+    body: list[ast.stmt], decl_type: type, attr: str = "names"
+) -> set[str]:
+    """Collect variable names from global or nonlocal declarations.
+
+    Args:
+        body: Function body to scan
+        decl_type: ast.Global or ast.Nonlocal
+        attr: Attribute name containing the names list
+    """
+    names: set[str] = set()
+    for stmt in body:
+        if isinstance(stmt, decl_type):
+            names.update(getattr(stmt, attr))
+        elif isinstance(stmt, ast.If):
+            names.update(_collect_decls(stmt.body, decl_type, attr))
+            names.update(_collect_decls(stmt.orelse, decl_type, attr))
+        elif isinstance(stmt, (ast.While, ast.For)):
+            names.update(_collect_decls(stmt.body, decl_type, attr))
+    return names
+
+
+def _has_try_feature(body: list[ast.stmt], check_fn: Callable[[ast.Try], bool]) -> bool:
+    """Check if body contains try statements matching a predicate.
+
+    Args:
+        body: Statements to scan
+        check_fn: Function that checks if a Try node has the feature
+    """
+    for stmt in body:
+        match stmt:
+            case ast.Try() as try_stmt if check_fn(try_stmt):
+                return True
+            case ast.With():
+                return True  # with uses try/except internally
+            case ast.If(body=if_body, orelse=else_body):
+                if _has_try_feature(if_body, check_fn) or _has_try_feature(
+                    else_body, check_fn
+                ):
+                    return True
+            case ast.While(body=while_body):
+                if _has_try_feature(while_body, check_fn):
+                    return True
+            case ast.For(body=for_body):
+                if _has_try_feature(for_body, check_fn):
+                    return True
+            case ast.Try(
+                body=try_body, handlers=handlers, orelse=orelse, finalbody=finalbody
+            ):
+                if (
+                    _has_try_feature(try_body, check_fn)
+                    or _has_try_feature(orelse, check_fn)
+                    or _has_try_feature(finalbody, check_fn)
+                ):
+                    return True
+                for handler in handlers:
+                    if _has_try_feature(handler.body, check_fn):
+                        return True
+            case ast.Match(cases=cases):
+                for case in cases:
+                    if _has_try_feature(case.body, check_fn):
+                        return True
+    return False
 
 
 def collect_target_names(target: ast.expr) -> set[str]:
@@ -129,24 +214,12 @@ def collect_namedexpr_vars(body: list[ast.stmt]) -> set[str]:
     """
     names: set[str] = set()
 
-    class NamedExprCollector(ast.NodeVisitor):
+    class NamedExprCollector(_SkipNestedScopes):
         def visit_NamedExpr(self, node: ast.NamedExpr) -> None:
             match node.target:
                 case ast.Name(id=name):
                     names.add(name)
             self.generic_visit(node)
-
-        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-            # Don't recurse into nested functions
-            pass
-
-        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-            # Don't recurse into nested functions
-            pass
-
-        def visit_Lambda(self, node: ast.Lambda) -> None:
-            # Don't recurse into lambdas
-            pass
 
     collector = NamedExprCollector()
     for stmt in body:
@@ -198,75 +271,12 @@ def collect_iter_locals(body: list[ast.stmt]) -> set[str]:
 
 def has_try_except(body: list[ast.stmt]) -> bool:
     """Check if body contains any try/except statements (needs $exc local)."""
-    for stmt in body:
-        match stmt:
-            case ast.Try(handlers=handlers) if handlers:
-                return True
-            case ast.With():
-                # with statements use try/except internally
-                return True
-            case ast.If(body=if_body, orelse=else_body):
-                if has_try_except(if_body) or has_try_except(else_body):
-                    return True
-            case ast.While(body=while_body):
-                if has_try_except(while_body):
-                    return True
-            case ast.For(body=for_body):
-                if has_try_except(for_body):
-                    return True
-            case ast.Try(
-                body=try_body, handlers=handlers, orelse=orelse, finalbody=finalbody
-            ):
-                # Check nested try blocks
-                if (
-                    has_try_except(try_body)
-                    or has_try_except(orelse)
-                    or has_try_except(finalbody)
-                ):
-                    return True
-                for handler in handlers:
-                    if has_try_except(handler.body):
-                        return True
-            case ast.Match(cases=cases):
-                for case in cases:
-                    if has_try_except(case.body):
-                        return True
-    return False
+    return _has_try_feature(body, lambda t: bool(t.handlers))
 
 
 def has_try_finally(body: list[ast.stmt]) -> bool:
     """Check if body contains any try/finally statements (needs $exnref local)."""
-    for stmt in body:
-        match stmt:
-            case ast.Try(finalbody=finalbody) if finalbody:
-                return True
-            case ast.If(body=if_body, orelse=else_body):
-                if has_try_finally(if_body) or has_try_finally(else_body):
-                    return True
-            case ast.While(body=while_body):
-                if has_try_finally(while_body):
-                    return True
-            case ast.For(body=for_body):
-                if has_try_finally(for_body):
-                    return True
-            case ast.Try(
-                body=try_body, handlers=handlers, orelse=orelse, finalbody=finalbody
-            ):
-                # Check nested try blocks
-                if (
-                    has_try_finally(try_body)
-                    or has_try_finally(orelse)
-                    or has_try_finally(finalbody)
-                ):
-                    return True
-                for handler in handlers:
-                    if has_try_finally(handler.body):
-                        return True
-            case ast.Match(cases=cases):
-                for case in cases:
-                    if has_try_finally(case.body):
-                        return True
-    return False
+    return _has_try_feature(body, lambda t: bool(t.finalbody))
 
 
 def collect_comprehension_locals(body: list[ast.stmt]) -> tuple[set[str], int]:
@@ -841,19 +851,7 @@ def collect_global_decls(body: list[ast.stmt]) -> set[str]:
 
     Does a shallow scan - doesn't recurse into nested functions.
     """
-    names: set[str] = set()
-    for stmt in body:
-        match stmt:
-            case ast.Global(names=global_names):
-                names.update(global_names)
-            case ast.If(body=if_body, orelse=else_body):
-                names.update(collect_global_decls(if_body))
-                names.update(collect_global_decls(else_body))
-            case ast.While(body=while_body):
-                names.update(collect_global_decls(while_body))
-            case ast.For(body=for_body):
-                names.update(collect_global_decls(for_body))
-    return names
+    return _collect_decls(body, ast.Global)
 
 
 def collect_nonlocal_decls(body: list[ast.stmt]) -> set[str]:
@@ -861,19 +859,7 @@ def collect_nonlocal_decls(body: list[ast.stmt]) -> set[str]:
 
     Does a shallow scan - doesn't recurse into nested functions.
     """
-    names: set[str] = set()
-    for stmt in body:
-        match stmt:
-            case ast.Nonlocal(names=nonlocal_names):
-                names.update(nonlocal_names)
-            case ast.If(body=if_body, orelse=else_body):
-                names.update(collect_nonlocal_decls(if_body))
-                names.update(collect_nonlocal_decls(else_body))
-            case ast.While(body=while_body):
-                names.update(collect_nonlocal_decls(while_body))
-            case ast.For(body=for_body):
-                names.update(collect_nonlocal_decls(for_body))
-    return names
+    return _collect_decls(body, ast.Nonlocal)
 
 
 def collect_all_global_refs(body: list[ast.stmt]) -> set[str]:
@@ -1023,7 +1009,7 @@ def is_generator_function(body: list[ast.stmt]) -> bool:
     A function is a generator if it contains any yield or yield from expression.
     """
 
-    class YieldFinder(ast.NodeVisitor):
+    class YieldFinder(_SkipNestedScopes):
         def __init__(self) -> None:
             self.has_yield = False
 
@@ -1032,19 +1018,6 @@ def is_generator_function(body: list[ast.stmt]) -> bool:
 
         def visit_YieldFrom(self, node: ast.YieldFrom) -> None:  # noqa: ARG002
             self.has_yield = True
-
-        # Don't recurse into nested functions/classes - they have their own scope
-        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-            pass
-
-        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-            pass
-
-        def visit_ClassDef(self, node: ast.ClassDef) -> None:
-            pass
-
-        def visit_Lambda(self, node: ast.Lambda) -> None:
-            pass
 
     finder = YieldFinder()
     for stmt in body:
@@ -1061,7 +1034,7 @@ def collect_yield_points(body: list[ast.stmt]) -> list[ast.Yield | ast.YieldFrom
     Does not recurse into nested functions.
     """
 
-    class YieldCollector(ast.NodeVisitor):
+    class YieldCollector(_SkipNestedScopes):
         def __init__(self) -> None:
             self.yields: list[ast.Yield | ast.YieldFrom] = []
 
@@ -1072,19 +1045,6 @@ def collect_yield_points(body: list[ast.stmt]) -> list[ast.Yield | ast.YieldFrom
         def visit_YieldFrom(self, node: ast.YieldFrom) -> None:
             self.yields.append(node)
             self.generic_visit(node)
-
-        # Don't recurse into nested functions/classes
-        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-            pass
-
-        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-            pass
-
-        def visit_ClassDef(self, node: ast.ClassDef) -> None:
-            pass
-
-        def visit_Lambda(self, node: ast.Lambda) -> None:
-            pass
 
     collector = YieldCollector()
     for stmt in body:
