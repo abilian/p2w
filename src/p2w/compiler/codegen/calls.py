@@ -41,9 +41,7 @@ def _has_reverse_kwarg(keywords: list[ast.keyword]) -> bool:
 def _has_true_kwarg(keywords: list[ast.keyword], name: str) -> bool:
     """Check if keywords contain name=True."""
     return any(
-        kw.arg == name
-        and isinstance(kw.value, ast.Constant)
-        and kw.value.value is True
+        kw.arg == name and isinstance(kw.value, ast.Constant) and kw.value.value is True
         for kw in keywords
     )
 
