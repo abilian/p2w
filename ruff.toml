@@ -28,6 +28,7 @@ lint.extend-ignore = [
     "COM812", # ...
     "T201", # Print...
     "PERF401", # list comprehension - explicit append loop is clearer
+    "RUF069", # floating point comparison
 
     # Fix later (or not)
     "E501", #   	line-too-long
