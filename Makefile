@@ -32,3 +32,7 @@ build: clean
 
 publish: build
 	uv publish
+
+update-deps:
+	uv sync -U
+	pre-commit autoupdate
