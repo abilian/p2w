@@ -17,6 +17,37 @@ if TYPE_CHECKING:
     from p2w.compiler.context import CompilerContext
 
 
+def _build_pair_chain(args: list[ast.expr], ctx: CompilerContext) -> None:
+    """Build a PAIR chain from a list of argument expressions.
+
+    Compiles each argument and builds a linked list of PAIRs.
+    Empty args list produces null.
+    """
+    if not args:
+        ctx.emitter.emit_null_eq()
+        return
+    for arg in args:
+        compile_expr(arg, ctx)
+    ctx.emitter.emit_null_eq()
+    for _ in args:
+        ctx.emitter.emit_struct_new("$PAIR")
+
+
+def _has_reverse_kwarg(keywords: list[ast.keyword]) -> bool:
+    """Check if keywords contain reverse=True."""
+    return _has_true_kwarg(keywords, "reverse")
+
+
+def _has_true_kwarg(keywords: list[ast.keyword], name: str) -> bool:
+    """Check if keywords contain name=True."""
+    return any(
+        kw.arg == name
+        and isinstance(kw.value, ast.Constant)
+        and kw.value.value is True
+        for kw in keywords
+    )
+
+
 # Enable direct builtin calls optimization
 # This avoids PAIR chain allocation for common single-arg builtins
 ENABLE_DIRECT_BUILTIN_CALLS = True
@@ -147,15 +178,8 @@ def _compile_direct_user_call(
     # Fallback: PAIR chain based call
     ctx.emitter.comment(f"direct call to '{func_name}'")
 
-    # Build PAIR chain for arguments (same as dynamic call)
-    if not args:
-        ctx.emitter.emit_null_eq()
-    else:
-        for arg in args:
-            compile_expr(arg, ctx)
-        ctx.emitter.emit_null_eq()
-        for _ in range(len(args)):
-            ctx.emitter.emit_struct_new("$PAIR")
+    # Build PAIR chain for arguments
+    _build_pair_chain(args, ctx)
 
     # Pass null environment (module-level functions don't need captured env)
     ctx.emitter.line("(ref.null $ENV)")
@@ -288,12 +312,7 @@ def compile_call(
 
     # sorted() with key and/or reverse keyword
     if isinstance(func, ast.Name) and func.id == "sorted":
-        has_reverse = any(
-            kw.arg == "reverse"
-            and isinstance(kw.value, ast.Constant)
-            and kw.value.value is True
-            for kw in keywords
-        )
+        has_reverse = _has_reverse_kwarg(keywords)
         key_kw = next((kw for kw in keywords if kw.arg == "key"), None)
 
         if key_kw:
@@ -398,15 +417,9 @@ def compile_call(
     # Check for starred expressions in args
     has_starred = any(isinstance(arg, ast.Starred) for arg in args)
 
-    if not args:
-        ctx.emitter.emit_null_eq()
-    elif not has_starred:
+    if not has_starred:
         # Simple case: no starred expressions
-        for arg in args:
-            compile_expr(arg, ctx)
-        ctx.emitter.emit_null_eq()
-        for _ in range(len(args)):
-            ctx.emitter.emit_struct_new("$PAIR")
+        _build_pair_chain(args, ctx)
     else:
         # Complex case: starred expressions - build list incrementally
         ctx.emitter.comment("function call with starred args")
@@ -472,12 +485,7 @@ def compile_method_call(
         return
 
     if method == "sort":
-        has_reverse = any(
-            kw.arg == "reverse"
-            and isinstance(kw.value, ast.Constant)
-            and kw.value.value is True
-            for kw in keywords
-        )
+        has_reverse = _has_reverse_kwarg(keywords)
         key_kw = next((kw for kw in keywords if kw.arg == "key"), None)
 
         if key_kw:
@@ -506,47 +514,22 @@ def compile_method_call(
         ctx.emitter.comment("int.to_bytes")
         compile_expr(obj, ctx)  # The integer value
         compile_expr(args[0], ctx)  # length
-        # Check byteorder (second arg)
         is_little = isinstance(args[1], ast.Constant) and args[1].value == "little"
-        # Check signed keyword
-        is_signed = any(
-            kw.arg == "signed"
-            and isinstance(kw.value, ast.Constant)
-            and kw.value.value is True
-            for kw in keywords
-        )
-        if is_little and is_signed:
-            ctx.emitter.emit_call("$int_to_bytes_little_signed")
-        elif is_little:
-            ctx.emitter.emit_call("$int_to_bytes_little")
-        elif is_signed:
-            ctx.emitter.emit_call("$int_to_bytes_big_signed")
-        else:
-            ctx.emitter.emit_call("$int_to_bytes_big")
+        is_signed = _has_true_kwarg(keywords, "signed")
+        endian = "little" if is_little else "big"
+        signed = "_signed" if is_signed else ""
+        ctx.emitter.emit_call(f"$int_to_bytes_{endian}{signed}")
         return
 
     if method == "from_bytes":
         # int.from_bytes(data, byteorder, signed=False)
-        # Called as int.from_bytes(...), but we detect it on the method name
         ctx.emitter.comment("int.from_bytes")
         compile_expr(args[0], ctx)  # The bytes data
-        # Check byteorder (second arg)
         is_little = isinstance(args[1], ast.Constant) and args[1].value == "little"
-        # Check signed keyword
-        is_signed = any(
-            kw.arg == "signed"
-            and isinstance(kw.value, ast.Constant)
-            and kw.value.value is True
-            for kw in keywords
-        )
-        if is_little and is_signed:
-            ctx.emitter.emit_call("$bytes_to_int_little_signed")
-        elif is_little:
-            ctx.emitter.emit_call("$bytes_to_int_little")
-        elif is_signed:
-            ctx.emitter.emit_call("$bytes_to_int_big_signed")
-        else:
-            ctx.emitter.emit_call("$bytes_to_int_big")
+        is_signed = _has_true_kwarg(keywords, "signed")
+        endian = "little" if is_little else "big"
+        signed = "_signed" if is_signed else ""
+        ctx.emitter.emit_call(f"$bytes_to_int_{endian}{signed}")
         return
 
     if method == "get":
@@ -816,11 +799,7 @@ def _compile_user_method_call(
     ctx.emitter.line("(local.set $tmp)  ;; save object/super")
 
     # Build args list WITHOUT self (dispatch helper will add self/cls if needed)
-    for arg in args:
-        compile_expr(arg, ctx)
-    ctx.emitter.emit_null_eq()
-    for _ in range(len(args)):
-        ctx.emitter.emit_struct_new("$PAIR")
+    _build_pair_chain(args, ctx)
     ctx.emitter.line("(local.set $tmp2)  ;; save args")
 
     # Get the method (may be wrapped in STATICMETHOD/CLASSMETHOD)
@@ -868,14 +847,7 @@ def _compile_print_with_kwargs(
     ctx.emitter.comment("print with kwargs")
 
     # Compile positional args into PAIR chain
-    if args:
-        for arg in args:
-            compile_expr(arg, ctx)
-        ctx.emitter.emit_null_eq()
-        for _ in range(len(args)):
-            ctx.emitter.emit_struct_new("$PAIR")
-    else:
-        ctx.emitter.emit_null_eq()
+    _build_pair_chain(args, ctx)
 
     # Compile sep value (default is space)
     if sep_kw:
@@ -979,11 +951,7 @@ def _compile_slotted_method_call(
     ctx.emitter.line("(local.set $tmp)  ;; save slotted instance")
 
     # Build args list WITHOUT self (dispatch helper will add self)
-    for arg in args:
-        compile_expr(arg, ctx)
-    ctx.emitter.emit_null_eq()
-    for _ in range(len(args)):
-        ctx.emitter.emit_struct_new("$PAIR")
+    _build_pair_chain(args, ctx)
     ctx.emitter.line("(local.set $tmp2)  ;; save args")
 
     # Get class from the slotted instance's $class field
