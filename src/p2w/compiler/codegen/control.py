@@ -13,6 +13,47 @@ if TYPE_CHECKING:
     from p2w.compiler.context import CompilerContext
 
 
+def _emit_loop_blocks_start(
+    orelse: list[ast.stmt] | None, ctx: CompilerContext
+) -> None:
+    """Emit outer block structure for loops with optional for-else."""
+    if orelse:
+        ctx.emitter.emit_block_start("$break")
+        ctx.emitter.emit_block_start("$loop_done")
+    else:
+        ctx.emitter.emit_block_start("$break")
+
+
+def _emit_loop_blocks_end(orelse: list[ast.stmt] | None, ctx: CompilerContext) -> None:
+    """Emit closing blocks and for-else clause if present."""
+    if orelse:
+        ctx.emitter.emit_block_end()  # $loop_done
+        ctx.emitter.comment("for-else clause")
+        for stmt in orelse:
+            compile_stmt(stmt, ctx)
+    ctx.emitter.emit_block_end()  # $break
+
+
+def _emit_loop_exit_check(orelse: list[ast.stmt] | None, ctx: CompilerContext) -> None:
+    """Emit branch to exit loop when condition is met."""
+    if orelse:
+        ctx.emitter.emit_br_if("$loop_done")
+    else:
+        ctx.emitter.emit_br_if("$break")
+
+
+def _parse_range_args(args: list[ast.expr]) -> tuple[ast.expr, ast.expr, ast.expr]:
+    """Parse range() arguments into (start, stop, step)."""
+    if len(args) == 1:
+        return ast.Constant(value=0), args[0], ast.Constant(value=1)
+    if len(args) == 2:
+        return args[0], args[1], ast.Constant(value=1)
+    if len(args) == 3:
+        return args[0], args[1], args[2]
+    msg = f"range() takes 1-3 arguments, got {len(args)}"
+    raise ValueError(msg)
+
+
 def _sync_native_from_boxed(name: str, ctx: CompilerContext) -> None:
     """Sync native local from boxed local if variable is native."""
     if name not in ctx.native_locals:
@@ -226,11 +267,7 @@ def _compile_for_with_dispatch(
     loop_var = ctx.local_vars[name]
 
     # Outer blocks for break/for-else
-    if orelse:
-        ctx.emitter.emit_block_start("$break")
-        ctx.emitter.emit_block_start("$loop_done")
-    else:
-        ctx.emitter.emit_block_start("$break")
+    _emit_loop_blocks_start(orelse, ctx)
 
     # Check if it's a $LIST for direct array iteration
     ctx.emitter.line("(if (ref.test (ref $LIST) (local.get $iter_source))")
@@ -353,14 +390,8 @@ def _compile_for_with_dispatch(
     ctx.emitter.line("  ))")  # close TUPLE if-else
     ctx.emitter.line(")")  # close LIST if
 
-    # Handle for-else
-    if orelse:
-        ctx.emitter.emit_block_end()  # $loop_done
-        ctx.emitter.comment("for-else clause")
-        for stmt in orelse:
-            compile_stmt(stmt, ctx)
-
-    ctx.emitter.emit_block_end()  # $break
+    # Handle for-else and close blocks
+    _emit_loop_blocks_end(orelse, ctx)
 
 
 def _compile_for_pair_chain(
@@ -378,20 +409,12 @@ def _compile_for_pair_chain(
     ctx.emitter.emit_call("$iter_prepare")
     ctx.emitter.emit_local_set(iter_local)
 
-    if orelse:
-        ctx.emitter.emit_block_start("$break")
-        ctx.emitter.emit_block_start("$loop_done")
-    else:
-        ctx.emitter.emit_block_start("$break")
-
+    _emit_loop_blocks_start(orelse, ctx)
     ctx.emitter.emit_loop_start("$loop")
 
     ctx.emitter.emit_local_get(iter_local)
     ctx.emitter.emit_ref_is_null()
-    if orelse:
-        ctx.emitter.emit_br_if("$loop_done")
-    else:
-        ctx.emitter.emit_br_if("$break")
+    _emit_loop_exit_check(orelse, ctx)
 
     ctx.emitter.emit_local_get(iter_local)
     ctx.emitter.emit_ref_cast("$PAIR")
@@ -419,14 +442,7 @@ def _compile_for_pair_chain(
     ctx.emitter.emit_br("$loop")
 
     ctx.emitter.emit_loop_end()
-
-    if orelse:
-        ctx.emitter.emit_block_end()
-        ctx.emitter.comment("for-else clause")
-        for stmt in orelse:
-            compile_stmt(stmt, ctx)
-
-    ctx.emitter.emit_block_end()
+    _emit_loop_blocks_end(orelse, ctx)
 
 
 def compile_for_tuple_stmt(
@@ -497,11 +513,7 @@ def _compile_for_tuple_with_dispatch(
     ctx.emitter.line("(local.set $iter_source)")
 
     # Outer blocks for break/for-else
-    if orelse:
-        ctx.emitter.emit_block_start("$break")
-        ctx.emitter.emit_block_start("$loop_done")
-    else:
-        ctx.emitter.emit_block_start("$break")
+    _emit_loop_blocks_start(orelse, ctx)
 
     # Check if it's a $LIST for direct array iteration
     ctx.emitter.line("(if (ref.test (ref $LIST) (local.get $iter_source))")
@@ -620,14 +632,8 @@ def _compile_for_tuple_with_dispatch(
     ctx.emitter.line("  ))")  # close TUPLE if-else
     ctx.emitter.line(")")  # close LIST if
 
-    # Handle for-else
-    if orelse:
-        ctx.emitter.emit_block_end()  # $loop_done
-        ctx.emitter.comment("for-else clause")
-        for stmt in orelse:
-            compile_stmt(stmt, ctx)
-
-    ctx.emitter.emit_block_end()  # $break
+    # Handle for-else and close blocks
+    _emit_loop_blocks_end(orelse, ctx)
 
 
 def _compile_for_tuple_pair_chain(
@@ -645,20 +651,12 @@ def _compile_for_tuple_pair_chain(
     ctx.emitter.emit_call("$iter_prepare")
     ctx.emitter.emit_local_set(iter_local)
 
-    if orelse:
-        ctx.emitter.emit_block_start("$break")
-        ctx.emitter.emit_block_start("$loop_done")
-    else:
-        ctx.emitter.emit_block_start("$break")
-
+    _emit_loop_blocks_start(orelse, ctx)
     ctx.emitter.emit_loop_start("$loop")
 
     ctx.emitter.emit_local_get(iter_local)
     ctx.emitter.emit_ref_is_null()
-    if orelse:
-        ctx.emitter.emit_br_if("$loop_done")
-    else:
-        ctx.emitter.emit_br_if("$break")
+    _emit_loop_exit_check(orelse, ctx)
 
     # Get the current item (a tuple)
     ctx.emitter.emit_local_get(iter_local)
@@ -684,14 +682,7 @@ def _compile_for_tuple_pair_chain(
     ctx.emitter.emit_br("$loop")
 
     ctx.emitter.emit_loop_end()
-
-    if orelse:
-        ctx.emitter.emit_block_end()
-        ctx.emitter.comment("for-else clause")
-        for stmt in orelse:
-            compile_stmt(stmt, ctx)
-
-    ctx.emitter.emit_block_end()
+    _emit_loop_blocks_end(orelse, ctx)
 
 
 def _detect_len_pattern(stop: ast.expr) -> str | None:
@@ -714,24 +705,7 @@ def _compile_for_range(
     ctx.emitter.comment("for loop over range")
 
     # Parse range arguments
-    start: ast.expr
-    stop: ast.expr
-    step: ast.expr
-    if len(args) == 1:
-        start = ast.Constant(value=0)
-        stop = args[0]
-        step = ast.Constant(value=1)
-    elif len(args) == 2:
-        start = args[0]
-        stop = args[1]
-        step = ast.Constant(value=1)
-    elif len(args) == 3:
-        start = args[0]
-        stop = args[1]
-        step = args[2]
-    else:
-        msg = f"range() takes 1-3 arguments, got {len(args)}"
-        raise ValueError(msg)
+    start, stop, step = _parse_range_args(args)
 
     # Detect safe bounds pattern: for i in range(len(lst)) or for i in range(0, len(lst))
     safe_container: str | None = None
@@ -769,11 +743,7 @@ def _compile_for_range(
         # Sync native local if loop variable is native
         _sync_native_from_boxed(name, ctx)
 
-    if orelse:
-        ctx.emitter.emit_block_start("$break")
-        ctx.emitter.emit_block_start("$loop_done")
-    else:
-        ctx.emitter.emit_block_start("$break")
+    _emit_loop_blocks_start(orelse, ctx)
 
     # Add comment if safe bounds optimization is active
     if safe_container:
@@ -794,10 +764,7 @@ def _compile_for_range(
     else:
         ctx.emitter.emit_i31_get_s()
     ctx.emitter.line("i32.ge_s")
-    if orelse:
-        ctx.emitter.emit_br_if("$loop_done")
-    else:
-        ctx.emitter.emit_br_if("$break")
+    _emit_loop_exit_check(orelse, ctx)
 
     ctx.emitter.emit_block_start("$continue")
 
@@ -838,14 +805,7 @@ def _compile_for_range(
     ctx.emitter.emit_br("$loop")
 
     ctx.emitter.emit_loop_end()
-
-    if orelse:
-        ctx.emitter.emit_block_end()
-        ctx.emitter.comment("for-else clause")
-        for stmt in orelse:
-            compile_stmt(stmt, ctx)
-
-    ctx.emitter.emit_block_end()
+    _emit_loop_blocks_end(orelse, ctx)
 
     # Clear safe bounds after loop ends
     if safe_container:
