@@ -268,38 +268,14 @@ def compile_generator_function(
     # Check if this is a simple linear generator
     is_simple = _is_simple_generator(body)
 
+    # Restore parameters from $locals (stored as PAIR chain) - needed for both paths
+    _emit_restore_params(param_names, ctx)
+
     if is_simple:
         # Simple case: linear yields only
-        # Restore parameters from $locals (stored as PAIR chain)
-        if param_names:
-            ctx.emitter.comment("restore parameters")
-            ctx.emitter.line("(local.set $tmp (local.get $locals))")
-            for param_name in param_names:
-                ctx.emitter.line(
-                    f"(local.set {ctx.local_vars[param_name]} "
-                    "(struct.get $PAIR 0 (ref.cast (ref $PAIR) (local.get $tmp))))"
-                )
-                ctx.emitter.line(
-                    "(local.set $tmp "
-                    "(struct.get $PAIR 1 (ref.cast (ref $PAIR) (local.get $tmp))))"
-                )
-        # Compile the generator body as a simple state machine
         _compile_generator_body_simple(body, yield_points, num_yields, ctx)
     else:
         # Complex case: yields inside loops - use loop-aware compilation
-        # First, restore parameters from $locals (always needed)
-        if param_names:
-            ctx.emitter.comment("restore parameters")
-            ctx.emitter.line("(local.set $tmp (local.get $locals))")
-            for param_name in param_names:
-                ctx.emitter.line(
-                    f"(local.set {ctx.local_vars[param_name]} "
-                    "(struct.get $PAIR 0 (ref.cast (ref $PAIR) (local.get $tmp))))"
-                )
-                ctx.emitter.line(
-                    "(local.set $tmp "
-                    "(struct.get $PAIR 1 (ref.cast (ref $PAIR) (local.get $tmp))))"
-                )
         _compile_generator_body_with_loops(
             body, all_local_names, param_names, yieldfrom_iter_locals, ctx
         )
@@ -993,13 +969,8 @@ def _compile_generator_for_v2(
     yield_stmt = first_stmt.value
     assert isinstance(yield_stmt, ast.Yield)
 
-    # Get unique state number for this for loop
-    gen_ctx = ctx.generator_context
-    if gen_ctx is None:
-        compile_stmt(
-            ast.For(target=target, iter=iter_expr, body=for_body, orelse=[]), ctx
-        )
-        return
+    # Get unique state number for this for loop (gen_ctx already checked above)
+    assert gen_ctx is not None
     gen_ctx.yield_count += 1
     for_loop_state = gen_ctx.yield_count
 
@@ -1080,6 +1051,32 @@ def _compile_generator_for_v2(
     ctx.emitter.line(")  ;; end state check")
 
 
+def _get_var_local(var: str, ctx: CompilerContext) -> str:
+    """Get the WASM local name for a variable."""
+    if var.startswith("$iter_"):
+        return var
+    if var in ctx.local_vars:
+        return ctx.local_vars[var]
+    return f"$var_{var}"
+
+
+def _emit_restore_params(param_names: list[str], ctx: CompilerContext) -> None:
+    """Emit code to restore parameters from $locals PAIR chain."""
+    if not param_names:
+        return
+    ctx.emitter.comment("restore parameters")
+    ctx.emitter.line("(local.set $tmp (local.get $locals))")
+    for param_name in param_names:
+        ctx.emitter.line(
+            f"(local.set {ctx.local_vars[param_name]} "
+            "(struct.get $PAIR 0 (ref.cast (ref $PAIR) (local.get $tmp))))"
+        )
+        ctx.emitter.line(
+            "(local.set $tmp "
+            "(struct.get $PAIR 1 (ref.cast (ref $PAIR) (local.get $tmp))))"
+        )
+
+
 def _emit_yield_v2(yield_expr: ast.Yield, ctx: CompilerContext) -> None:
     """Emit code for a yield expression (v2)."""
     gen_ctx = ctx.generator_context
@@ -1123,33 +1120,25 @@ def _emit_save_all_locals(ctx: CompilerContext) -> None:
     ctx.emitter.comment("save all locals")
     n_vars = len(all_vars)
 
-    def _get_var_local(var: str) -> str:
-        """Get the WASM local name for a variable."""
-        if var.startswith("$iter_"):
-            return var
-        if var in ctx.local_vars:
-            return ctx.local_vars[var]
-        return f"$var_{var}"
-
     if n_vars == 1:
         # Single var: PAIR(var, null)
         var_name = all_vars[0]
         ctx.emitter.line(f"(local.get {gen_ctx.gen_local})")
-        ctx.emitter.emit_local_get(_get_var_local(var_name))
+        ctx.emitter.emit_local_get(_get_var_local(var_name, ctx))
         ctx.emitter.emit_null_eq()
         ctx.emitter.emit_struct_new("$PAIR")
         ctx.emitter.line("(struct.set $GENERATOR $locals)")
     else:
         # Multiple vars: build chain from last to first
         last_var = all_vars[-1]
-        ctx.emitter.emit_local_get(_get_var_local(last_var))
+        ctx.emitter.emit_local_get(_get_var_local(last_var, ctx))
         ctx.emitter.emit_null_eq()
         ctx.emitter.emit_struct_new("$PAIR")
 
         for i in range(n_vars - 2, -1, -1):
             ctx.emitter.line("(local.set $tmp)")
             var_name = all_vars[i]
-            ctx.emitter.emit_local_get(_get_var_local(var_name))
+            ctx.emitter.emit_local_get(_get_var_local(var_name, ctx))
             ctx.emitter.line("(local.get $tmp)")
             ctx.emitter.emit_struct_new("$PAIR")
 
@@ -1169,20 +1158,12 @@ def _emit_restore_all_locals(ctx: CompilerContext) -> None:
     if not all_vars:
         return
 
-    def _get_var_local(var: str) -> str:
-        """Get the WASM local name for a variable."""
-        if var.startswith("$iter_"):
-            return var
-        if var in ctx.local_vars:
-            return ctx.local_vars[var]
-        return f"$var_{var}"
-
     ctx.emitter.comment("restore all locals")
     ctx.emitter.line(
         f"(local.set $tmp (struct.get $GENERATOR $locals (local.get {gen_ctx.gen_local})))"
     )
     for var_name in all_vars:
-        local_name = _get_var_local(var_name)
+        local_name = _get_var_local(var_name, ctx)
         ctx.emitter.line(
             f"(local.set {local_name} "
             "(struct.get $PAIR 0 (ref.cast (ref $PAIR) (local.get $tmp))))"
