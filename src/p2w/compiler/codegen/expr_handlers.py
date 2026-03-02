@@ -100,10 +100,6 @@ def _name(node: ast.Name, ctx: CompilerContext) -> None:
 # Binary Operations
 # =============================================================================
 
-# i31 range: -1073741824 to 1073741823 (i.e., -2^30 to 2^30-1)
-_I31_MIN = -(2**30)
-_I31_MAX = 2**30 - 1
-
 
 def _is_small_int_expr(node: ast.expr) -> bool:
     """Check if expression is guaranteed to be a small integer (fits in i31).
@@ -114,10 +110,10 @@ def _is_small_int_expr(node: ast.expr) -> bool:
     """
     match node:
         case ast.Constant(value=int() as val):
-            return _I31_MIN <= val <= _I31_MAX
+            return I31_MIN <= val <= I31_MAX
         # For unary minus of a constant, check the negated value
         case ast.UnaryOp(op=ast.USub(), operand=ast.Constant(value=int() as val)):
-            return _I31_MIN <= -val <= _I31_MAX
+            return I31_MIN <= -val <= I31_MAX
         case _:
             return False
 
@@ -149,20 +145,20 @@ def _operation_might_overflow(
         return False
 
     # If either doesn't fit in i31, already handled elsewhere
-    if not (_I31_MIN <= left_val <= _I31_MAX and _I31_MIN <= right_val <= _I31_MAX):
+    if not (I31_MIN <= left_val <= I31_MAX and I31_MIN <= right_val <= I31_MAX):
         return False
 
     # Check if result might overflow
     match op:
         case ast.Add():
             result = left_val + right_val
-            return result < _I31_MIN or result > _I31_MAX
+            return result < I31_MIN or result > I31_MAX
         case ast.Sub():
             result = left_val - right_val
-            return result < _I31_MIN or result > _I31_MAX
+            return result < I31_MIN or result > I31_MAX
         case ast.Mult():
             result = left_val * right_val
-            return result < _I31_MIN or result > _I31_MAX
+            return result < I31_MIN or result > I31_MAX
         case _:
             return False
 
@@ -225,7 +221,7 @@ def _binop(node: ast.BinOp, ctx: CompilerContext) -> None:
                 and isinstance(right, ast.Constant)
                 and isinstance(left.value, int)
                 and isinstance(right.value, int)
-                and _I31_MIN <= left.value + right.value <= _I31_MAX
+                and I31_MIN <= left.value + right.value <= I31_MAX
             ):
                 _compile_int_binop(node, ctx)
                 return
@@ -237,7 +233,7 @@ def _binop(node: ast.BinOp, ctx: CompilerContext) -> None:
                 and isinstance(right, ast.Constant)
                 and isinstance(left.value, int)
                 and isinstance(right.value, int)
-                and _I31_MIN <= left.value - right.value <= _I31_MAX
+                and I31_MIN <= left.value - right.value <= I31_MAX
             ):
                 _compile_int_binop(node, ctx)
                 return
@@ -249,7 +245,7 @@ def _binop(node: ast.BinOp, ctx: CompilerContext) -> None:
                 and isinstance(right, ast.Constant)
                 and isinstance(left.value, int)
                 and isinstance(right.value, int)
-                and _I31_MIN <= left.value * right.value <= _I31_MAX
+                and I31_MIN <= left.value * right.value <= I31_MAX
             ):
                 _compile_int_binop(node, ctx)
                 return
@@ -554,6 +550,19 @@ def _compile_int_binop(node: ast.BinOp, ctx: CompilerContext) -> None:
     ctx.emitter.emit_ref_i31()
 
 
+def _emit_f64_mod(ctx: CompilerContext) -> None:
+    """Emit f64 modulo: a % b = a - floor(a/b) * b."""
+    ctx.emitter.line("(local.set $ftmp2)")
+    ctx.emitter.line("(local.tee $ftmp1)")
+    ctx.emitter.line("(local.get $ftmp1)")
+    ctx.emitter.line("(local.get $ftmp2)")
+    ctx.emitter.line("f64.div")
+    ctx.emitter.line("f64.floor")
+    ctx.emitter.line("(local.get $ftmp2)")
+    ctx.emitter.line("f64.mul")
+    ctx.emitter.line("f64.sub")
+
+
 def _compile_native_binop(
     node: ast.BinOp, left_type: BaseType, right_type: BaseType, ctx: CompilerContext
 ) -> None:
@@ -645,16 +654,7 @@ def _compile_native_binop(
             ctx.emitter.line("f64.div")
             ctx.emitter.line("f64.floor")
         case ("f64", ast.Mod()):
-            # a % b = a - floor(a/b) * b
-            ctx.emitter.line("(local.set $ftmp2)")
-            ctx.emitter.line("(local.tee $ftmp1)")
-            ctx.emitter.line("(local.get $ftmp1)")
-            ctx.emitter.line("(local.get $ftmp2)")
-            ctx.emitter.line("f64.div")
-            ctx.emitter.line("f64.floor")
-            ctx.emitter.line("(local.get $ftmp2)")
-            ctx.emitter.line("f64.mul")
-            ctx.emitter.line("f64.sub")
+            _emit_f64_mod(ctx)
         case ("f64", ast.Pow()):
             ctx.emitter.line("(call $math_pow)")
 
@@ -830,16 +830,7 @@ def _compile_float_binop(node: ast.BinOp, ctx: CompilerContext) -> None:
                     ctx.emitter.line("f64.div")
                     ctx.emitter.line("f64.floor")
                 case ast.Mod():
-                    # a % b = a - floor(a/b) * b
-                    ctx.emitter.line("(local.set $ftmp2)")
-                    ctx.emitter.line("(local.tee $ftmp1)")
-                    ctx.emitter.line("(local.get $ftmp1)")
-                    ctx.emitter.line("(local.get $ftmp2)")
-                    ctx.emitter.line("f64.div")
-                    ctx.emitter.line("f64.floor")
-                    ctx.emitter.line("(local.get $ftmp2)")
-                    ctx.emitter.line("f64.mul")
-                    ctx.emitter.line("f64.sub")
+                    _emit_f64_mod(ctx)
                 case ast.Pow():
                     ctx.emitter.line("(call $math_pow)")
                 case _:
@@ -902,16 +893,7 @@ def _compile_float_binop_raw(node: ast.BinOp, ctx: CompilerContext) -> None:
                     ctx.emitter.line("f64.div")
                     ctx.emitter.line("f64.floor")
                 case ast.Mod():
-                    # a % b = a - floor(a/b) * b
-                    ctx.emitter.line("(local.set $ftmp2)")
-                    ctx.emitter.line("(local.tee $ftmp1)")
-                    ctx.emitter.line("(local.get $ftmp1)")
-                    ctx.emitter.line("(local.get $ftmp2)")
-                    ctx.emitter.line("f64.div")
-                    ctx.emitter.line("f64.floor")
-                    ctx.emitter.line("(local.get $ftmp2)")
-                    ctx.emitter.line("f64.mul")
-                    ctx.emitter.line("f64.sub")
+                    _emit_f64_mod(ctx)
                 case ast.Pow():
                     ctx.emitter.line("(call $math_pow)")
                 case _:
