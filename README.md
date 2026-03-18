@@ -171,7 +171,7 @@ The compiler generates WAT code that uses WASM 3.0 GC features for automatic mem
 
 - Python 3.12+
 - [wabt](https://github.com/WebAssembly/wabt) (for `wat2wasm`)
-- A WASM runtime with GC support (e.g., recent Chrome/Firefox, wasmtime with GC enabled)
+- A WASM runtime with GC support (e.g., recent Chrome/Firefox, wasmtime with GC enabled, Nodejs 25+...)
 
 ## Prior Art and References
 
