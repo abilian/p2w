@@ -77,14 +77,51 @@ uv sync
 
 ## Usage
 
-### Command Line
+### Quick Start
+
+Given a Python source file `fib.py`:
+
+```python
+def fib(n):
+    a, b = 0, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a
+
+print(fib(30))
+```
+
+The simplest way to compile and run it:
 
 ```bash
-# Compile Python to WAT
-uv run p2w source.py > output.wat
+uv run p2w -r fib.py
+# Output: 832040
+```
 
-# Convert WAT to WASM (requires wabt)
-wat2wasm output.wat -o output.wasm
+### Step by Step
+
+If you want to inspect or keep the intermediate files:
+
+```bash
+# 1. Compile Python to WAT (WebAssembly Text format)
+uv run p2w fib.py -o fib.wat
+
+# 2. Convert WAT to WASM binary (requires wasm-tools)
+wasm-tools parse fib.wat -o fib.wasm
+```
+
+The generated WASM cannot run standalone — it imports host functions for I/O (`write_char`, `write_i32`, etc.). The `p2w -r` flag handles this automatically by generating a Node.js loader that provides these imports and runs the module. For browser execution, see the demos in `demos/`.
+
+### CLI Options
+
+```
+p2w [-h] [-o OUTPUT] [-r] [-v] [-d] [-V] source
+
+  -o, --output FILE   write WAT to file instead of stdout
+  -r, --run           compile and run immediately (requires wasm-tools + Node.js)
+  -v, --verbose       show compilation details on stderr
+  -d, --debug         dump AST and debug info to stderr
+  -V, --version       show version
 ```
 
 ### As a Library
@@ -92,17 +129,7 @@ wat2wasm output.wat -o output.wasm
 ```python
 from p2w import compile_to_wat
 
-source = """
-def fib(n):
-    a, b = 0, 1
-    for _ in range(n):
-        a, b = b, a + b
-    return a
-
-print(fib(10))
-"""
-
-wat_code = compile_to_wat(source)
+wat_code = compile_to_wat('print("hello")')
 ```
 
 ## Examples
@@ -163,15 +190,16 @@ p2w follows a straightforward compilation pipeline:
 1. **Parse**: Python source -> AST (using Python's `ast` module)
 2. **Analyze**: Scope analysis, type inference
 3. **Compile**: AST -> WAT (WebAssembly Text format)
-4. **Assemble**: WAT -> WASM (via external tools like `wat2wasm`)
+4. **Assemble**: WAT -> WASM (via `wasm-tools`)
 
 The compiler generates WAT code that uses WASM 3.0 GC features for automatic memory management of Python objects.
 
 ## Requirements
 
 - Python 3.12+
-- [wabt](https://github.com/WebAssembly/wabt) (for `wat2wasm`)
-- A WASM runtime with GC support (e.g., recent Chrome/Firefox, wasmtime with GC enabled, Nodejs 25+...)
+- [wasm-tools](https://github.com/bytecodealliance/wasm-tools) (for WAT to WASM conversion)
+- [Node.js](https://nodejs.org/) 22+ (for running compiled WASM via `p2w -r`)
+- For browser execution: any browser with WASM GC support (recent Chrome/Firefox)
 
 ## Prior Art and References
 
