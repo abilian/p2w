@@ -33,10 +33,12 @@ js.console.log("Hello from Python!")
 
 ### Browser Demos
 
-The `demos/` directory contains two (somewhat) working browser demos:
+The `demos/` directory contains two browser demos:
 
 - **data-dashboard**: Bar chart visualization using Canvas API
 - **simulation**: Physics simulation with real-time rendering
+
+NB: They are not working yet. They were ported from <https://github.com/abilian/prescrypt/tree/main/demos> but never finished.
 
 ### Golden Programs
 
