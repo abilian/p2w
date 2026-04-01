@@ -1,0 +1,98 @@
+%% p2w Compilation Pipeline
+%% Render with: mermaid-cli or any Mermaid-compatible viewer
+
+flowchart TB
+    subgraph Input
+        PY[Python Source]
+    end
+
+    subgraph "Phase 1: Parsing"
+        AST[Python AST]
+    end
+
+    subgraph "Phase 2: Inlining"
+        INL[Function Inlining]
+    end
+
+    subgraph "Phase 3: Analysis"
+        direction TB
+        A1[Collect Local Vars]
+        A2[Collect Iterator / Comprehension / With Locals]
+        A3[Find Free Variables]
+        A4[Detect Generators]
+        A5[Analyze Exceptions]
+        A6[Scope Declarations]
+    end
+
+    subgraph "Phase 4: Type Inference"
+        direction TB
+        T1[Infer Constants & Annotations]
+        T2[Operation Result Types]
+        T3[Escape Analysis]
+        T4[Native Type Eligibility]
+    end
+
+    subgraph "Phase 5: Code Generation"
+        direction TB
+        CG[Compiler + Context]
+        EXP[Expression Handlers]
+        STMT[Statement Handlers]
+        FN[Functions / Classes / Generators]
+        JSI[JS Interop]
+    end
+
+    subgraph "Runtime Library"
+        direction TB
+        TYPES[Type Definitions]
+        IMPORTS[Host Imports]
+        BUILTINS[Builtins]
+        HELPERS[Helpers]
+    end
+
+    subgraph "Phase 6: Emission"
+        EMT[WATEmitter]
+        WAT[WAT Output]
+    end
+
+    subgraph "Phase 7: Assembly"
+        WT[wasm-tools]
+        WASM[WASM Binary]
+    end
+
+    subgraph "Execution: Node.js"
+        direction LR
+        JSRUN["Generated .mjs loader\n(I/O + float fmt + math)"]
+        NODEVM[Node.js WASM VM]
+    end
+
+    subgraph "Execution: Browser"
+        direction LR
+        LOADER["loader.js\n(I/O + float fmt + math + DOM + Canvas + Events)"]
+        BROWSERVM[Browser WASM VM]
+    end
+
+    PY --> AST
+    AST --> INL
+    INL --> A1 & A2 & A3 & A4 & A5 & A6
+    A1 & A2 & A3 & A4 & A5 & A6 --> T1
+    T1 --> T2 --> T3 --> T4
+    T4 --> CG
+    CG --> EXP & STMT & FN & JSI
+    EXP & STMT & FN & JSI --> EMT
+    TYPES & IMPORTS & BUILTINS & HELPERS --> EMT
+    EMT --> WAT
+    WAT --> WT
+    WT --> WASM
+    WASM --> NODEVM
+    JSRUN <--> NODEVM
+    WASM --> BROWSERVM
+    LOADER <--> BROWSERVM
+
+    style PY fill:#3776ab,color:#fff
+    style WASM fill:#654ff0,color:#fff
+    style WAT fill:#007acc,color:#fff
+    style INL fill:#2d8659,color:#fff
+    style TYPES fill:#c9760c,color:#fff
+    style IMPORTS fill:#c9760c,color:#fff
+    style BUILTINS fill:#c9760c,color:#fff
+    style HELPERS fill:#c9760c,color:#fff
