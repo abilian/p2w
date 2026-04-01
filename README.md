@@ -185,14 +185,19 @@ make test-cov
 
 ## Architecture
 
-p2w follows a straightforward compilation pipeline:
+p2w follows a 7-phase compilation pipeline:
 
-1. **Parse**: Python source -> AST (using Python's `ast` module)
-2. **Analyze**: Scope analysis, type inference
-3. **Compile**: AST -> WAT (WebAssembly Text format)
-4. **Assemble**: WAT -> WASM (via `wasm-tools`)
+1. **Parse**: Python source → AST (using Python's `ast` module)
+2. **Inline**: Small functions inlined at call sites
+3. **Analyze**: Scope analysis, variable collection, generator detection
+4. **Infer types**: Forward-flow type inference, escape analysis, native type eligibility
+5. **Generate code**: AST → WAT via singledispatch visitor pattern
+6. **Emit**: WAT output combining user code with runtime library (types, builtins, helpers)
+7. **Assemble**: WAT → WASM (via `wasm-tools`)
 
-The compiler generates WAT code that uses WASM 3.0 GC features for automatic memory management of Python objects.
+The generated WASM uses GC extensions for automatic memory management. Execution requires a JavaScript host (Node.js or browser) that provides I/O and runtime imports.
+
+See [`docs/architecture.md`](docs/architecture.md) for full details including the type system, runtime architecture, calling convention, and JavaScript interop.
 
 ## Requirements
 
