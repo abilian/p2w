@@ -55,6 +55,8 @@ WORKING_PROGRAMS: set[str] = {
     "boolean_none.py",
     "builtin_functions.py",
     "builtins_extended.py",
+    "builtins_iteration_simple.py",
+    "builtins_iteration_tools.py",
     "bytes_encoding.py",
     "bytes_literals.py",
     "bytes_methods.py",

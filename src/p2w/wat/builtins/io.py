@@ -208,7 +208,8 @@ PRINT_CODE = """
   ;; $DICT - print {key: value, ...}
   (if (ref.test (ref $DICT) (local.get $v))
     (then
-      (call $emit_dict (struct.get $DICT 0 (ref.cast (ref $DICT) (local.get $v))))
+      (call $emit_dict (call $hashtable_entries
+        (struct.get $DICT $table (ref.cast (ref $DICT) (local.get $v)))))
       (return)
     )
   )
