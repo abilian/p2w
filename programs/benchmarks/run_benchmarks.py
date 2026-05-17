@@ -660,13 +660,13 @@ def run_all_benchmarks(
     benchmark_dir = Path(__file__).parent
 
     benchmarks = [
-        ("fibonacci", benchmark_dir / "fibonacci.py"),
+        ("fibonacci", benchmark_dir / "fibonacci_native.py"),
         ("nbody", benchmark_dir / "nbody.py"),
         ("binarytrees", benchmark_dir / "binarytrees.py"),
         ("spectralnorm", benchmark_dir / "spectralnorm.py"),
         ("fannkuch", benchmark_dir / "fannkuch_native.py"),
         ("pystone", benchmark_dir / "pystone.py"),
-        ("mandelbrot", benchmark_dir / "mandelbrot.py"),
+        ("mandelbrot", benchmark_dir / "mandelbrot_native.py"),
         ("fasta", benchmark_dir / "fasta.py"),
         ("sieve", benchmark_dir / "sieve_native.py"),
         ("matmul", benchmark_dir / "matmul_native.py"),
