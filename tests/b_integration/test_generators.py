@@ -226,6 +226,46 @@ print(exhausted)
         py_out, p2w_out, match = compare_outputs(source)
         assert match, f"Expected {py_out!r}, got {p2w_out!r}"
 
+    def test_except_stopiteration_catches_exhaustion(self):
+        """`try: next(g) except StopIteration` must catch generator
+        exhaustion (regression: bare $StopIteration tag escaped the
+        Python try/except machinery)."""
+        source = """
+def g():
+    yield 1
+
+gen = g()
+print(next(gen))
+try:
+    next(gen)
+    print("ERROR: no StopIteration")
+except StopIteration:
+    print("caught stopiter")
+"""
+        py_out, p2w_out, match = compare_outputs(source)
+        assert match, f"Expected {py_out!r}, got {p2w_out!r}"
+
+    def test_close_then_next_raises_stopiteration(self):
+        """After close(), next() raises StopIteration catchable by
+        `except StopIteration`."""
+        source = """
+def simple_gen():
+    yield 1
+    yield 2
+    yield 3
+
+g = simple_gen()
+print(next(g))
+print(g.close())
+try:
+    next(g)
+    print("ERROR")
+except StopIteration:
+    print("correctly closed")
+"""
+        py_out, p2w_out, match = compare_outputs(source)
+        assert match, f"Expected {py_out!r}, got {p2w_out!r}"
+
     @pytest.mark.skip(reason="Empty generator with early return not working")
     def test_empty_generator(self):
         source = """

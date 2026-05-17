@@ -18,6 +18,24 @@ if TYPE_CHECKING:
     from p2w.compiler.context import CompilerContext
 
 
+def _box_native_value(ctx: CompilerContext) -> None:
+    """Box the value on the stack according to its native type.
+
+    Unlike a bare `emit_ref_i31()`, this handles f64/i64 too, so native
+    floats stored into a list element are boxed as $FLOAT (not i31).
+    """
+    if not ctx.has_native_value:
+        return
+    match ctx.current_native_type:
+        case NativeType.F64:
+            ctx.emitter.emit_struct_new("$FLOAT")
+        case NativeType.I64:
+            ctx.emitter.emit_struct_new("$INT64")
+        case _:
+            ctx.emitter.emit_ref_i31()
+    ctx.clear_native_value()
+
+
 def compile_index_value(index: ast.expr, ctx: CompilerContext) -> None:
     """Emit raw i32 value for use as array index.
 
@@ -330,9 +348,7 @@ def _compile_inline_list_set(
 
     # Compile value BEFORE the type check (needed by both branches)
     compile_expr(value, ctx)
-    if ctx.has_native_value:
-        ctx.emitter.emit_ref_i31()
-        ctx.clear_native_value()
+    _box_native_value(ctx)
     ctx.emitter.line("(local.set $tmp2)")
 
     # First check if it's actually a LIST
@@ -607,9 +623,7 @@ def compile_subscript_assignment(
                 ctx.emitter.line("(local.tee $tmp)")
                 compile_index_value(target.slice, ctx)
                 compile_expr(value, ctx)
-                if ctx.has_native_value:
-                    ctx.emitter.emit_ref_i31()
-                    ctx.clear_native_value()
+                _box_native_value(ctx)
                 ctx.emitter.emit_call("$list_set_unified")
                 ctx.emitter.emit_local_get("$tmp")
 
@@ -623,9 +637,7 @@ def compile_subscript_assignment(
                 ctx.emitter.line("(local.tee $tmp)")
                 compile_index_value(target.slice, ctx)
                 compile_expr(value, ctx)
-                if ctx.has_native_value:
-                    ctx.emitter.emit_ref_i31()
-                    ctx.clear_native_value()
+                _box_native_value(ctx)
                 ctx.emitter.emit_call("$list_set_unified")
                 ctx.emitter.emit_local_get("$tmp")
 
@@ -644,14 +656,10 @@ def compile_subscript_assignment(
             ctx.emitter.line("    (local.get $tmp)  ;; self")
             compile_expr(target.slice, ctx)
             # Box native slice if needed
-            if ctx.has_native_value:
-                ctx.emitter.emit_ref_i31()
-                ctx.clear_native_value()
+            _box_native_value(ctx)
             compile_expr(value, ctx)
             # Box native value if needed
-            if ctx.has_native_value:
-                ctx.emitter.emit_ref_i31()
-                ctx.clear_native_value()
+            _box_native_value(ctx)
             ctx.emitter.emit_null_eq()
             ctx.emitter.emit_struct_new("$PAIR")
             ctx.emitter.emit_struct_new("$PAIR")
@@ -675,14 +683,10 @@ def compile_subscript_assignment(
             ctx.emitter.emit_local_get("$tmp")
             compile_expr(target.slice, ctx)
             # Box native slice if needed
-            if ctx.has_native_value:
-                ctx.emitter.emit_ref_i31()
-                ctx.clear_native_value()
+            _box_native_value(ctx)
             compile_expr(value, ctx)
             # Box native value if needed
-            if ctx.has_native_value:
-                ctx.emitter.emit_ref_i31()
-                ctx.clear_native_value()
+            _box_native_value(ctx)
             ctx.emitter.emit_call("$container_set")
             ctx.emitter.line("  )")
             ctx.emitter.line(")")

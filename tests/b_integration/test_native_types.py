@@ -304,3 +304,44 @@ print(len(result))
         wat = compile_to_wat(source)
         output = run_wat(wat)
         assert output.strip() == "3"
+
+
+@requires_wasm_tools
+@requires_node_wasm_gc
+class TestF64SubscriptStore:
+    """Native f64/i64 values stored into list elements must be boxed
+    correctly (as $FLOAT/$INT64), not as an i31. Regression: storing a
+    native f64 via subscript on a non-local container produced invalid
+    WAT ("expected eqref, found f64").
+    """
+
+    def test_f64_stored_into_global_list(self) -> None:
+        """f64 expression assigned to list[idx] on a module global."""
+        source = """\
+xs: list = [0.0, 0.0, 0.0]
+
+
+def f() -> None:
+    a: f64 = 1.5
+    b: f64 = 2.25
+    xs[0] = a * b
+    xs[1] = a + b
+    xs[2] = xs[0] - xs[1]
+
+
+f()
+print(xs[0], xs[1], xs[2])
+"""
+        output = run_wat(compile_to_wat(source))
+        assert output.strip() == "3.375 3.75 -0.375"
+
+    def test_i32_subscript_store_still_works(self) -> None:
+        """The i32 boxing path must remain intact."""
+        source = """\
+ys: list = [0, 0]
+ys[0] = 7
+ys[1] = ys[0] * 3
+print(ys[0], ys[1])
+"""
+        output = run_wat(compile_to_wat(source))
+        assert output.strip() == "7 21"

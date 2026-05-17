@@ -186,9 +186,18 @@ def _try(node: ast.Try, ctx: CompilerContext) -> None:
         ctx.emitter.line(f"(block {catch_label} (result (ref $EXCEPTION))")
         ctx.emitter.indent_inc()
 
+        # Inner block to also catch the bare $StopIteration tag (thrown by
+        # generator exhaustion) and turn it into a StopIteration $EXCEPTION
+        # so `except StopIteration` / bare `except` can handle it.
+        catch_si_label = f"$catch_si_{label_id}"
+        ctx.emitter.line(f"(block {catch_si_label}")
+        ctx.emitter.indent_inc()
+
         # try_table
         ctx.emitter.line(
-            f"(try_table (result (ref null eq)) (catch $PyException {catch_label})"
+            f"(try_table (result (ref null eq)) "
+            f"(catch $PyException {catch_label}) "
+            f"(catch $StopIteration {catch_si_label})"
         )
         ctx.emitter.indent_inc()
 
@@ -208,6 +217,16 @@ def _try(node: ast.Try, ctx: CompilerContext) -> None:
 
         # No exception - jump to end
         ctx.emitter.line(f"br {try_end_label}")
+        ctx.emitter.indent_dec()
+        ctx.emitter.line(")")  # end catch_si block
+
+        # $StopIteration caught (no payload): synthesize a StopIteration
+        # exception and fall through into the handler dispatch below.
+        ctx.emitter.comment("synthesize StopIteration exception")
+        ctx.emitter.line(
+            "(struct.new $EXCEPTION (call $make_stop_iteration_str) "
+            "(ref.null eq) (ref.null eq) (ref.null eq))"
+        )
         ctx.emitter.indent_dec()
         ctx.emitter.line(")")  # end catch block
 
