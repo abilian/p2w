@@ -693,9 +693,12 @@ def _compile_generator_while_v2(
         compile_stmt(ast.While(test=test, body=while_body, orelse=[]), ctx)
         return
 
-    ctx.emitter.line("(block $while_exit")
+    # Use $break/$continue label names so that `break`/`continue` statements
+    # in the loop body (which always emit `br $break`/`br $continue`) resolve
+    # to this loop. WASM block scoping makes nested loops shadow correctly.
+    ctx.emitter.line("(block $break")
     ctx.emitter.indent += 1
-    ctx.emitter.line("(loop $while_loop_top")
+    ctx.emitter.line("(loop $continue")
     ctx.emitter.indent += 1
 
     ctx.emitter.line("(block $skip_to_post_yield")
@@ -723,7 +726,7 @@ def _compile_generator_while_v2(
     ctx.emitter.comment("state 0: check condition")
     compile_expr(test, ctx)
     ctx.emitter.line("(call $is_false)")
-    ctx.emitter.line("(br_if $while_exit)")
+    ctx.emitter.line("(br_if $break)")
 
     # Pre-yield code
     if pre_yield:
@@ -751,12 +754,12 @@ def _compile_generator_while_v2(
             _compile_generator_stmt_v2(stmt, ctx)
 
     # Loop back to top
-    ctx.emitter.line("(br $while_loop_top)")
+    ctx.emitter.line("(br $continue)")
 
     ctx.emitter.indent -= 1
-    ctx.emitter.line(")  ;; end loop")
+    ctx.emitter.line(")  ;; end loop $continue")
     ctx.emitter.indent -= 1
-    ctx.emitter.line(")  ;; end block")
+    ctx.emitter.line(")  ;; end block $break")
 
 
 def _compile_generator_for_complex(
